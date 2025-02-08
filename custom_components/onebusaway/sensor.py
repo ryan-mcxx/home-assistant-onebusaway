@@ -50,14 +50,9 @@ async def async_setup_entry(hass, entry, async_add_devices):
 
 
 class OneBusAwaySensor(SensorEntity):
-    """onebusaway Sensor class."""
+    """OneBusAway Sensor class."""
 
-    def __init__(
-        self,
-        client: OneBusAwayApiClient,
-        entity_description: SensorEntityDescription,
-        stop: str,
-    ) -> None:
+    def __init__(self, client: OneBusAwayApiClient, entity_description: SensorEntityDescription, stop: str) -> None:
         """Initialize the sensor class."""
         super().__init__()
         self.entity_description = entity_description
@@ -75,49 +70,64 @@ class OneBusAwaySensor(SensorEntity):
 
     data = None
     unsub = None
-    next_arrival = None
+    arrival_times = []  # Store all arrival times with metadata
 
-    def compute_next(self) -> datetime:
-        """Compute the next arrival time from the last read data."""
+    def compute_arrivals(self, after) -> list[dict]:
+        """Compute all upcoming arrival times after the given timestamp."""
         if self.data is None:
+            return []
+
+        current = after * 1000
+
+        def extract_departure(d) -> dict | None:
+            """Extract time and type (predicted or scheduled)."""
+            predicted = d.get("predictedArrivalTime")
+            scheduled = d.get("scheduledDepartureTime")
+            if predicted and predicted > current:
+                return {"time": predicted / 1000, "type": "Predicted"}
+            elif scheduled and scheduled > current:
+                return {"time": scheduled / 1000, "type": "Scheduled"}
             return None
-        # This is a unix timestamp value except in
-        # milliseconds because precision is super
-        # important when discussing train departure
-        # times
-        current = time() * 1000
-        # We want the soonest time that is after the current time
+
+        # Collect valid departure data
         departures = [
-            d["scheduledDepartureTime"]
-            for d in self.data.get("data")["entry"]["arrivalsAndDepartures"]
-            if d["scheduledDepartureTime"] > current
+            dep for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
+            if (dep := extract_departure(d)) is not None
         ]
-        departure = min(departures) / 1000
-        return datetime.fromtimestamp(departure, timezone.utc)
+
+        # Sort by time and return
+        return sorted(departures, key=lambda x: x["time"])
 
     def refresh(self, _timestamp) -> None:
         """Invalidate the current sensor state."""
         self.schedule_update_ha_state(True)
 
     @property
-    def native_value(self) -> str:
-        """Return the native value of the sensor."""
-        return self.next_arrival
+    def native_value(self) -> str | None:
+        """Return the next bus arrival time."""
+        return datetime.fromtimestamp(self.arrival_times[0]["time"], timezone.utc).isoformat() if self.arrival_times else None
+
+    @property
+    def extra_state_attributes(self):
+        """Return attributes for each bus arrival."""
+        attrs = {}
+        for index, arrival in enumerate(self.arrival_times, start=1):
+            arrival_time = datetime.fromtimestamp(arrival["time"], timezone.utc).isoformat()
+            attrs[f"Arrival {index} Time"] = arrival_time
+            attrs[f"Arrival {index} Type"] = arrival["type"]
+        return attrs
 
     async def async_update(self):
-        """Retrieve latest state."""
+        """Retrieve the latest state."""
         self.data = await self.client.async_get_data()
 
-        soonest = self.compute_next()
-        if soonest != self.next_arrival:
-            self.next_arrival = soonest
-            if self.unsub is not None:
-                self.unsub()
+        # Update arrival times
+        self.arrival_times = self.compute_arrivals(time())
 
-            #
-            # set a timer to go off at the next arrival time so we can
-            # invalidate the state
-            #
+        if self.arrival_times:
+            if self.unsub:
+                self.unsub()
+            # Set a timer for the next arrival to refresh the state
             self.unsub = async_track_point_in_time(
-                self.hass, self.refresh, self.next_arrival
+                self.hass, self.refresh, datetime.fromtimestamp(self.arrival_times[0]["time"], timezone.utc)
             )
