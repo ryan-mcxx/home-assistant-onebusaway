@@ -83,14 +83,16 @@ class OneBusAwaySensor(SensorEntity):
         current = after * 1000
 
         def extract_departure(d) -> dict | None:
-            """Extract time, type, and trip headsign."""
+            """Extract time, type, route name, and trip headsign."""
             predicted = d.get("predictedArrivalTime")
             scheduled = d.get("scheduledDepartureTime")
             trip_headsign = d.get("tripHeadsign", "Unknown")
+            route_name = d.get("routeShortName", "Unknown Route")
+            
             if predicted and predicted > current:
-                return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign}
+                return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign, "routeShortName": route_name}
             elif scheduled and scheduled > current:
-                return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign}
+                return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign, "routeShortName": route_name}
             return None
 
         # Collect valid departure data
@@ -120,10 +122,9 @@ class OneBusAwaySensor(SensorEntity):
         """Dynamically set the sensor name based on the next trip headsign."""
         if self.arrival_times:
             arrival = self.arrival_times[0]
-            route_name = arrival.get("routeShortName", "Unknown Route")
-            headsign = arrival.get("headsign", "Unknown Destination")
-            return f"{route_name} to {headsign}"
+            return f"{arrival['routeShortName']} to {arrival['headsign']}"
         return "OneBusAway Sensor"
+
     
     @property
     def extra_state_attributes(self):
