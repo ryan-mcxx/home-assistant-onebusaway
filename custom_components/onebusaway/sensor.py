@@ -119,7 +119,10 @@ class OneBusAwaySensor(SensorEntity):
     def name(self) -> str:
         """Dynamically set the sensor name based on the next trip headsign."""
         if self.arrival_times:
-            return f"{self.arrival_times[0]['routeShortName']} to {self.arrival_times[0]['headsign']}"
+            arrival = self.arrival_times[0]
+            route_name = arrival.get("routeShortName", "Unknown Route")
+            headsign = arrival.get("headsign", "Unknown Destination")
+            return f"{route_name} to {headsign}"
         return "OneBusAway Sensor"
     
     @property
