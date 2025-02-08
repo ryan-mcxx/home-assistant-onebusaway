@@ -83,13 +83,14 @@ class OneBusAwaySensor(SensorEntity):
         current = after * 1000
 
         def extract_departure(d) -> dict | None:
-            """Extract time and type (predicted or scheduled)."""
+            """Extract time, type, and trip headsign."""
             predicted = d.get("predictedArrivalTime")
             scheduled = d.get("scheduledDepartureTime")
+            trip_headsign = d.get("tripHeadsign", "Unknown")
             if predicted and predicted > current:
-                return {"time": predicted / 1000, "type": "Predicted"}
+                return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign}
             elif scheduled and scheduled > current:
-                return {"time": scheduled / 1000, "type": "Scheduled"}
+                return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign}
             return None
 
         # Collect valid departure data
@@ -115,6 +116,13 @@ class OneBusAwaySensor(SensorEntity):
         )
 
     @property
+    def name(self) -> str:
+        """Dynamically set the sensor name based on the next trip headsign."""
+        if self.arrival_times:
+            return f"OneBusAway to {self.arrival_times[0]['headsign']}"
+        return "OneBusAway Sensor"
+    
+    @property
     def extra_state_attributes(self):
         """Return attributes for each bus arrival."""
         attrs = {}
@@ -122,6 +130,7 @@ class OneBusAwaySensor(SensorEntity):
             arrival_time = datetime.fromtimestamp(arrival["time"], timezone.utc)
             attrs[f"Arrival {index} Time"] = arrival_time.isoformat()
             attrs[f"Arrival {index} Type"] = arrival["type"]
+            attrs[f"Arrival {index} Headsign"] = arrival["headsign"]
         return attrs
 
     async def async_update(self):
