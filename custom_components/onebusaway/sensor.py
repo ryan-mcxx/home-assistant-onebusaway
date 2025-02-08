@@ -134,7 +134,7 @@ class OneBusAwaySensor(SensorEntity):
             arrival_time = datetime.fromtimestamp(arrival["time"], timezone.utc)
             attrs[f"Arrival {index} Time"] = arrival_time.isoformat()
             attrs[f"Arrival {index} Type"] = arrival["type"]
-            attrs[f"Arrival {index} Headsign"] = arrival["headsign"]
+            attrs[f"Arrival {index} Route"] = f"{arrival['routeShortName']} to {arrival['headsign']}"
         return attrs
 
     async def async_update(self):
