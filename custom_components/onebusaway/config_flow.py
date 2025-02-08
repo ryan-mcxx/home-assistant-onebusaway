@@ -60,13 +60,13 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         selector.TextSelectorConfig(type=selector.TextSelectorType.URL),
                     ),
                     vol.Optional(
-                        CONF_TOKEN, default="e1452dde-44fa-4bf9-821b-96ace8fbcbf6"
+                        CONF_TOKEN, default="93300649-efcb-4f86-963e-827e9616ef94"
                     ): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.TEXT
                         ),
                     ),
-                    vol.Required(CONF_ID, default="1_55778"): selector.TextSelector(
+                    vol.Required(CONF_ID, default="40_55778"): selector.TextSelector(
                         selector.TextSelectorConfig(
                             type=selector.TextSelectorType.TEXT
                         ),
