@@ -2,7 +2,7 @@
   "domain": "onebusaway",
   "name": "OneBusAway",
   "codeowners": [
-    "@jvert"
+    "@ryan-mcxx"
   ],
   "config_flow": true,
   "documentation": "https://github.com/jvert/home-assistant-onebusaway",
