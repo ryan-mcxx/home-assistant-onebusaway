@@ -5,8 +5,8 @@
     "@ryan-mcxx"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/jvert/home-assistant-onebusaway",
+  "documentation": "https://github.com/ryan-mcxx/home-assistant-onebusaway",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/jvert/home-assistant-onebusaway/issues",
+  "issue_tracker": "https://github.com/ryan-mcxx/home-assistant-onebusaway/issues",
   "version": "0.1.0"
 }
