@@ -37,18 +37,22 @@ async def async_setup_entry(hass, entry, async_add_devices):
         stop=entry.data[CONF_ID],
         session=async_get_clientsession(hass),
     )
-    async_add_devices(
-        OneBusAwaySensor(
-            client=client,
-            entity_description=entity_description,
-            stop=entry.data[CONF_ID],
-        )
-        for entity_description in ENTITY_DESCRIPTIONS
+    
+    parent_sensor = OneBusAwaySensor(
+        client=client,
+        entity_description=ENTITY_DESCRIPTIONS[0],
+        stop=entry.data[CONF_ID],
     )
+
+    # Add parent sensor first
+    async_add_devices([parent_sensor])
+
+    # Create arrival sensors dynamically on updates
+    parent_sensor.register_child_sensors = lambda sensors: async_add_devices(sensors)
 
 
 class OneBusAwaySensor(SensorEntity):
-    """OneBusAway Sensor class."""
+    """OneBusAway Parent Sensor class."""
 
     def __init__(
         self,
@@ -56,24 +60,15 @@ class OneBusAwaySensor(SensorEntity):
         entity_description: SensorEntityDescription,
         stop: str,
     ) -> None:
-        """Initialize the sensor class."""
+        """Initialize the parent sensor."""
         super().__init__()
         self.entity_description = entity_description
         self.client = client
-        self._attr_attribution = ATTRIBUTION
-        self._attr_unique_id = stop
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, stop)},
-            name=NAME,
-            model=VERSION,
-            manufacturer=NAME,
-        )
-
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
-
-    data = None
-    unsub = None
-    arrival_times = []  # Store all arrival times with metadata
+        self.stop = stop
+        self.arrival_times = []
+        self.data = None
+        self.unsub = None
+        self.register_child_sensors = None
 
     def compute_arrivals(self, after) -> list[dict]:
         """Compute all upcoming arrival times after the given timestamp."""
@@ -83,12 +78,11 @@ class OneBusAwaySensor(SensorEntity):
         current = after * 1000
 
         def extract_departure(d) -> dict | None:
-            """Extract time, type, route name, and trip headsign."""
+            """Extract time, type, and trip headsign."""
             predicted = d.get("predictedArrivalTime")
             scheduled = d.get("scheduledDepartureTime")
             trip_headsign = d.get("tripHeadsign", "Unknown")
             route_name = d.get("routeShortName", "Unknown Route")
-            
             if predicted and predicted > current:
                 return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign, "routeShortName": route_name}
             elif scheduled and scheduled > current:
@@ -104,45 +98,18 @@ class OneBusAwaySensor(SensorEntity):
         # Sort by time and return
         return sorted(departures, key=lambda x: x["time"])
 
-    def refresh(self, _timestamp) -> None:
-        """Invalidate the current sensor state."""
-        self.schedule_update_ha_state(True)
-
-    @property
-    def native_value(self) -> datetime | None:
-        """Return the next bus arrival time."""
-        return (
-            datetime.fromtimestamp(self.arrival_times[0]["time"], timezone.utc)
-            if self.arrival_times
-            else None
-        )
-
-    @property
-    def name(self) -> str:
-        """Dynamically set the sensor name based on the next trip headsign."""
-        if self.arrival_times:
-            arrival = self.arrival_times[0]
-            return f"{arrival['routeShortName']} to {arrival['headsign']}"
-        return "OneBusAway Sensor"
-
-    
-    @property
-    def extra_state_attributes(self):
-        """Return attributes for each bus arrival."""
-        attrs = {}
-        for index, arrival in enumerate(self.arrival_times, start=1):
-            arrival_time = datetime.fromtimestamp(arrival["time"], timezone.utc)
-            attrs[f"Arrival {index} Time"] = arrival_time.isoformat()
-            attrs[f"Arrival {index} Type"] = arrival["type"]
-            attrs[f"Arrival {index} Route"] = f"{arrival['routeShortName']} to {arrival['headsign']}"
-        return attrs
-
     async def async_update(self):
-        """Retrieve the latest state."""
+        """Retrieve the latest state and update child sensors."""
         self.data = await self.client.async_get_data()
-
-        # Update arrival times
         self.arrival_times = self.compute_arrivals(time())
+
+        # Create child sensors dynamically
+        if self.register_child_sensors and self.arrival_times:
+            child_sensors = [
+                OneBusAwayArrivalSensor(self.stop, arrival)
+                for arrival in self.arrival_times
+            ]
+            self.register_child_sensors(child_sensors)
 
         if self.arrival_times:
             if self.unsub:
@@ -151,3 +118,20 @@ class OneBusAwaySensor(SensorEntity):
             self.unsub = async_track_point_in_time(
                 self.hass, self.refresh, datetime.fromtimestamp(self.arrival_times[0]["time"], timezone.utc)
             )
+
+    def refresh(self, _timestamp) -> None:
+        """Invalidate the current sensor state."""
+        self.schedule_update_ha_state(True)
+
+
+class OneBusAwayArrivalSensor(SensorEntity):
+    """Represents a single bus arrival sensor."""
+
+    def __init__(self, stop: str, arrival: dict) -> None:
+        """Initialize the sensor for a specific bus arrival."""
+        self._attr_unique_id = f"{stop}_{int(arrival['time'])}"
+        self._attr_name = f"{arrival['routeShortName']} to {arrival['headsign']}"
+        self._attr_native_value = datetime.fromtimestamp(arrival["time"], timezone.utc)
+        self._attr_extra_state_attributes = {
+            "Type": arrival["type"]
+        }
