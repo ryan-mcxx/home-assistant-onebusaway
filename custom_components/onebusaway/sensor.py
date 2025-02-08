@@ -1,10 +1,9 @@
-"""Sensor platform for onebusaway."""
+"""Sensor platform for OneBusAway."""
 from __future__ import annotations
 from datetime import datetime, timezone
 from time import time
 
 from homeassistant.helpers.entity import DeviceInfo
-
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
@@ -19,7 +18,6 @@ from homeassistant.helpers.event import async_track_point_in_time
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import ATTRIBUTION, DOMAIN, NAME, VERSION
-
 from .api import OneBusAwayApiClient
 
 ENTITY_DESCRIPTIONS = (
@@ -52,7 +50,12 @@ async def async_setup_entry(hass, entry, async_add_devices):
 class OneBusAwaySensor(SensorEntity):
     """OneBusAway Sensor class."""
 
-    def __init__(self, client: OneBusAwayApiClient, entity_description: SensorEntityDescription, stop: str) -> None:
+    def __init__(
+        self,
+        client: OneBusAwayApiClient,
+        entity_description: SensorEntityDescription,
+        stop: str,
+    ) -> None:
         """Initialize the sensor class."""
         super().__init__()
         self.entity_description = entity_description
@@ -103,17 +106,21 @@ class OneBusAwaySensor(SensorEntity):
         self.schedule_update_ha_state(True)
 
     @property
-    def native_value(self) -> str | None:
+    def native_value(self) -> datetime | None:
         """Return the next bus arrival time."""
-        return datetime.fromtimestamp(self.arrival_times[0]["time"], timezone.utc).isoformat() if self.arrival_times else None
+        return (
+            datetime.fromtimestamp(self.arrival_times[0]["time"], timezone.utc)
+            if self.arrival_times
+            else None
+        )
 
     @property
     def extra_state_attributes(self):
         """Return attributes for each bus arrival."""
         attrs = {}
         for index, arrival in enumerate(self.arrival_times, start=1):
-            arrival_time = datetime.fromtimestamp(arrival["time"], timezone.utc).isoformat()
-            attrs[f"Arrival {index} Time"] = arrival_time
+            arrival_time = datetime.fromtimestamp(arrival["time"], timezone.utc)
+            attrs[f"Arrival {index} Time"] = arrival_time.isoformat()
             attrs[f"Arrival {index} Type"] = arrival["type"]
         return attrs
 
