@@ -1,4 +1,3 @@
-"""Sample API Client."""
 from __future__ import annotations
 
 import asyncio
@@ -36,12 +35,17 @@ class OneBusAwayApiClient:
         self._stop = stop
         self._session = session
 
-    async def async_get_data(self) -> any:
+    async def async_get_data(self) -> dict:
         """Get data from the API."""
         return await self._api_wrapper(
             method="get",
             url=f"{self._url}/where/arrivals-and-departures-for-stop/{self._stop}.json?key={self._key}",
         )
+
+    async def async_get_situations(self) -> list[dict]:
+        """Get the list of situations from the API."""
+        data = await self.async_get_data()
+        return data.get("references", {}).get("situations", [])
 
     async def _api_wrapper(
         self,
