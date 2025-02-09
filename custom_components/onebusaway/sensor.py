@@ -161,7 +161,11 @@ class OneBusAwayArrivalSensor(SensorEntity):
     def __init__(self, stop: str, index: int, arrival: dict) -> None:
         """Initialize the sensor for a specific bus arrival."""
         self._attr_unique_id = f"{stop}_{index}"
-        self.update_arrival(arrival)
+        self._attr_name = f"{arrival['routeShortName']} to {arrival['headsign']}"
+        self._attr_native_value = datetime.fromtimestamp(arrival["time"], timezone.utc)
+        self._attr_extra_state_attributes = {
+            "Type": arrival["type"]
+        }
 
     def update_arrival(self, arrival: dict):
         """Update the sensor with new arrival data."""
@@ -170,4 +174,6 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_extra_state_attributes = {
             "Type": arrival["type"]
         }
-        self.async_write_ha_state()
+        # Write state only after the sensor is fully registered
+        if self.hass:
+            self.async_write_ha_state()
