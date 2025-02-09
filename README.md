@@ -30,6 +30,7 @@ filter:
     - entity_id: sensor.onebusaway_(stop_id_number)*
   exclude:
     - state: unknown
+    - state: unavailable
 sort:
   method: state
 ```
