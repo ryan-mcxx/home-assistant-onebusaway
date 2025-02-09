@@ -139,8 +139,8 @@ class OneBusAwaySensor(SensorEntity):
                 self.child_sensors[sensor_id].update_arrival(arrival)
 
         if new_sensors:
+            # Register new sensors with Home Assistant
             self.register_child_sensors(new_sensors)
-
 
 class OneBusAwayArrivalSensor(SensorEntity):
     """Represents a single bus arrival sensor."""
@@ -148,7 +148,13 @@ class OneBusAwayArrivalSensor(SensorEntity):
     def __init__(self, stop: str, arrival: dict) -> None:
         """Initialize the sensor for a specific bus arrival."""
         self._attr_unique_id = f"{stop}_{int(arrival['time'])}"
+        self._hass = None
         self.update_arrival(arrival)
+
+    async def async_added_to_hass(self):
+        """Called when the entity is added to Home Assistant."""
+        await super().async_added_to_hass()
+        self._hass = self.hass  # Now we can safely write state
 
     def update_arrival(self, arrival: dict):
         """Update the sensor with new arrival data."""
@@ -157,4 +163,6 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_extra_state_attributes = {
             "Type": arrival["type"]
         }
-        self.async_write_ha_state()
+        # Only update state if the entity has been added to Home Assistant
+        if self._hass:
+            self.async_write_ha_state()
