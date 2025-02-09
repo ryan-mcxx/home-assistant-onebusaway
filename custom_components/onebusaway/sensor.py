@@ -1,12 +1,11 @@
-"""Sensor platform for OneBusAway."""
-from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from time import time
 
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.const import CONF_URL, CONF_ID, CONF_TOKEN
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import ATTRIBUTION, DOMAIN, NAME, VERSION
 from .api import OneBusAwayApiClient
@@ -36,8 +35,9 @@ class OneBusAwayCoordinator:
         self.async_add_devices = async_add_devices
         self.stop_id = stop_id
         self.sensors = {}
+        self.polling_job = None
 
-    async def async_refresh(self):
+    async def async_refresh(self, _=None):
         """Fetch new data and update or create sensors."""
         data = await self.client.async_get_data()
         arrivals = self.compute_arrivals(time(), data)
@@ -56,6 +56,9 @@ class OneBusAwayCoordinator:
 
         if new_sensors:
             self.async_add_devices(new_sensors)
+
+        # Adjust polling interval
+        self._schedule_next_poll(arrivals)
 
     def compute_arrivals(self, after, data) -> list[dict]:
         """Compute all upcoming arrivals."""
@@ -79,6 +82,26 @@ class OneBusAwayCoordinator:
         ]
 
         return sorted(departures, key=lambda x: x["time"])
+
+    def _schedule_next_poll(self, arrivals):
+        """Schedule the next poll based on arrival times."""
+        if self.polling_job:
+            self.polling_job()  # Cancel previous job
+
+        # Determine polling interval
+        if arrivals:
+            next_arrival_time = arrivals[0]["time"]
+            seconds_until_next_arrival = next_arrival_time - time()
+
+            if seconds_until_next_arrival <= 300:  # 5 minutes or less
+                interval = timedelta(seconds=30)
+            else:
+                interval = timedelta(seconds=60)
+        else:
+            interval = timedelta(seconds=60)  # Default if no arrivals
+
+        # Schedule the next poll
+        self.polling_job = async_track_time_interval(self.hass, self.async_refresh, interval)
 
 
 class OneBusAwayArrivalSensor(SensorEntity):
