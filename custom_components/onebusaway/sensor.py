@@ -13,18 +13,22 @@ from .api import OneBusAwayApiClient
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
-    """Set up the sensor platform."""
-    client = OneBusAwayApiClient(
-        url=entry.data[CONF_URL],
-        key=entry.data[CONF_TOKEN],
-        stop=entry.data[CONF_ID],
-        session=async_get_clientsession(hass),
-    )
+    """Set up the sensor platform with multiple stops."""
+    stops = entry.data.get("stops", [entry.data[CONF_ID]])  # Support multiple stops
+    session = async_get_clientsession(hass)
 
-    stop_id = entry.data[CONF_ID]
-    coordinator = OneBusAwaySensorCoordinator(hass, client, async_add_devices, stop_id)
-    await coordinator.async_refresh()
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    coordinators = []
+    for stop_id in stops:
+        client = OneBusAwayApiClient(
+            url=entry.data[CONF_URL],
+            key=entry.data[CONF_TOKEN],
+            stop=stop_id,
+            session=session,
+        )
+        coordinator = OneBusAwaySensorCoordinator(hass, client, async_add_devices, stop_id)
+        await coordinator.async_refresh()
+        coordinators.append(coordinator)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinators
 
 
 class OneBusAwaySensorCoordinator:
@@ -46,7 +50,7 @@ class OneBusAwaySensorCoordinator:
 
     async def async_update(self):
         """Retrieve the latest state and update sensors."""
-        self.data = await self.client.async_get_data()
+        self.data = await self.client.async_get_data(self.stop_id)
 
         # Compute new arrival times
         new_arrival_times = self.compute_arrivals(time())
