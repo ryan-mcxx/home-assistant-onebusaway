@@ -6,9 +6,13 @@ Integration to bring data from [OneBusAway](https://onebusaway.org/)
 into Home Assistant.
 
 ## Install
-First, you need to know the stop ID that you are interested in. You should be able to find this
-from your transit agency's page.
 Use HACS and add as a custom repo. Once the integration is installed go to your integrations and add the OneBusAway integration. It will prompt you for some configuration parameters:
+
+url: don't change
+token: request an API key from [Sound Transit](https://www.soundtransit.org/help-contacts/business-information/open-transit-data-otd)
+id: Use [Puget Sound OneBusAway](https://pugetsound.onebusaway.org/) map to zoom in and identify the stop you are interested in and select it, and view schedule. The id will be in the url of that link.
+
+There must be routes scheduled to arrive during setup, otherwise it will not complete.
 -
 
 ## Supported
