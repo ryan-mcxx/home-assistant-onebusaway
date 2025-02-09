@@ -4,24 +4,12 @@ from datetime import datetime, timezone
 from time import time
 
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorEntityDescription,
-)
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.const import CONF_URL, CONF_ID, CONF_TOKEN
-from homeassistant.helpers.event import async_track_point_in_time
-from homeassistant.helpers.entity_platform import async_add_entities
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import ATTRIBUTION, DOMAIN, NAME, VERSION
 from .api import OneBusAwayApiClient
-
-ENTITY_DESCRIPTIONS = (
-    SensorEntityDescription(
-        key="onebusaway",
-        name="OneBusAway Sensor",
-        icon="mdi:bus-clock",
-    ),
-)
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -30,95 +18,110 @@ async def async_setup_entry(hass, entry, async_add_devices):
         url=entry.data[CONF_URL],
         key=entry.data[CONF_TOKEN],
         stop=entry.data[CONF_ID],
-        session=hass.helpers.aiohttp_client.async_get_clientsession(),
+        session=async_get_clientsession(hass),
     )
-    sensor = OneBusAwaySensor(client, entry.data[CONF_ID], async_add_devices)
-    async_add_devices([sensor])
+
+    coordinator = OneBusAwayCoordinator(hass, client, async_add_devices)
+    await coordinator.async_refresh()
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
 
-class OneBusAwaySensor(SensorEntity):
-    """OneBusAway Parent Sensor class."""
+class OneBusAwayCoordinator:
+    """Manages dynamic sensor creation and updates."""
 
-    def __init__(self, client: OneBusAwayApiClient, stop: str, async_add_devices) -> None:
-        """Initialize the parent sensor."""
+    def __init__(self, hass, client, async_add_devices):
+        self.hass = hass
         self.client = client
-        self.stop = stop
         self.async_add_devices = async_add_devices
-        self._attr_unique_id = stop
-        self._attr_name = "OneBusAway Sensor"
+        self.sensors = {}
+
+    async def async_refresh(self):
+        """Fetch new data and update or create sensors."""
+        data = await self.client.async_get_data()
+        arrivals = self.compute_arrivals(time(), data)
+
+        # Update or create sensors for each arrival
+        new_sensors = []
+        for index, arrival in enumerate(arrivals):
+            unique_id = f"{self.client.stop}_arrival_{index}"
+            if unique_id not in self.sensors:
+                sensor = OneBusAwayArrivalSensor(self.client, arrival, index)
+                self.sensors[unique_id] = sensor
+                new_sensors.append(sensor)
+            else:
+                # Update existing sensor
+                self.sensors[unique_id].update_arrival(arrival)
+
+        if new_sensors:
+            self.async_add_devices(new_sensors)
+
+    def compute_arrivals(self, after, data) -> list[dict]:
+        """Compute all upcoming arrivals."""
+        current = after * 1000
+
+        def extract_departure(d):
+            predicted = d.get("predictedArrivalTime")
+            scheduled = d.get("scheduledDepartureTime")
+            trip_headsign = d.get("tripHeadsign", "Unknown")
+            route_name = d.get("routeShortName", "Unknown Route")
+
+            if predicted and predicted > current:
+                return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign, "routeShortName": route_name}
+            elif scheduled and scheduled > current:
+                return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign, "routeShortName": route_name}
+            return None
+
+        departures = [
+            dep for d in data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
+            if (dep := extract_departure(d)) is not None
+        ]
+
+        return sorted(departures, key=lambda x: x["time"])
+
+
+class OneBusAwayArrivalSensor(SensorEntity):
+    """Sensor for an individual bus arrival."""
+
+    def __init__(self, client, arrival_info, index) -> None:
+        """Initialize the sensor."""
+        self.client = client
+        self.index = index
+        self._attr_unique_id = f"{client.stop}_arrival_{index}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, stop)},
+            identifiers={(DOMAIN, client.stop)},
             name=NAME,
             model=VERSION,
             manufacturer=NAME,
         )
-        self.child_sensors = {}
-        self.data = None
-        self.unsub = None
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        self._attr_attribution = ATTRIBUTION
+        self.arrival_info = arrival_info
 
-    async def async_update(self):
-        """Retrieve the latest state."""
-        self.data = await self.client.async_get_data()
+    def update_arrival(self, arrival_info):
+        """Update the sensor with new arrival information."""
+        self.arrival_info = arrival_info
+        self.async_write_ha_state()
 
-        # Update child sensors
-        self.update_child_sensors()
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the time for this specific bus arrival."""
+        return datetime.fromtimestamp(self.arrival_info["time"], timezone.utc) if self.arrival_info else None
 
-        # Schedule next state refresh
-        if self.unsub:
-            self.unsub()
-        if self.data:
-            arrivals = self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
-            if arrivals:
-                next_arrival_time = arrivals[0].get("predictedArrivalTime") or arrivals[0].get("scheduledDepartureTime")
-                if next_arrival_time:
-                    self.unsub = async_track_point_in_time(
-                        self.hass, self.refresh, datetime.fromtimestamp(next_arrival_time / 1000, timezone.utc)
-                    )
+    @property
+    def name(self) -> str:
+        """Dynamically set the sensor name."""
+        if self.arrival_info:
+            arrival = self.arrival_info
+            return f"{arrival['routeShortName']} to {arrival['headsign']} (Arrival {self.index + 1})"
+        return f"OneBusAway Arrival {self.index + 1}"
 
-    def refresh(self, _timestamp) -> None:
-        """Invalidate the current sensor state."""
-        self.schedule_update_ha_state(True)
-
-    def update_child_sensors(self):
-        """Update child sensors for each arrival."""
-        arrivals = self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
-        
-        for index, arrival in enumerate(arrivals):
-            # Use index for consistent child entity naming
-            if index not in self.child_sensors:
-                child_sensor = OneBusAwayArrivalSensor(self.stop, index, arrival)
-                self.child_sensors[index] = child_sensor
-                self.hass.async_create_task(self.async_add_devices([child_sensor]))
-            else:
-                self.child_sensors[index].update_arrival(arrival)
-
-
-class OneBusAwayArrivalSensor(SensorEntity):
-    """Represents a single bus trip as a child sensor."""
-
-    def __init__(self, stop: str, index: int, arrival: dict) -> None:
-        """Initialize the child sensor."""
-        self._stop = stop
-        self._index = index
-        self._attr_unique_id = f"{stop}_{index}"
-        self.update_arrival(arrival)
-
-    def update_arrival(self, arrival: dict):
-        """Update the sensor with new arrival data."""
-        route_name = arrival.get("routeShortName", "Unknown Route")
-        headsign = arrival.get("headsign", "Unknown Destination")
-        arrival_time = arrival.get("predictedArrivalTime") or arrival.get("scheduledDepartureTime")
-        if arrival_time:
-            self._attr_native_value = datetime.fromtimestamp(arrival_time / 1000, timezone.utc)
-        else:
-            self._attr_native_value = None
-
-        self._attr_name = f"Route {route_name} to {headsign}"
-        self._attr_extra_state_attributes = {
-            "route": f"{route_name} to {headsign}",
-            "type": "Predicted" if "predictedArrivalTime" in arrival else "Scheduled",
+    @property
+    def extra_state_attributes(self):
+        """Return additional metadata for this bus arrival."""
+        if not self.arrival_info:
+            return {}
+        return {
+            "type": self.arrival_info["type"],
+            "headsign": self.arrival_info["headsign"],
+            "route": self.arrival_info["routeShortName"],
         }
-
-        # Schedule an update for Home Assistant
-        if self.hass:
-            self.async_write_ha_state()
