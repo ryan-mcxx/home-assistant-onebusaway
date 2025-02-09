@@ -121,6 +121,9 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_attribution = ATTRIBUTION
         self.arrival_info = arrival_info
 
+        # Set the entity_id explicitly
+        self.entity_id = f"sensor.{stop_id}_arrival_{index}"
+
     def update_arrival(self, arrival_info):
         """Update the sensor with new arrival information."""
         self.arrival_info = arrival_info
@@ -150,4 +153,3 @@ class OneBusAwayArrivalSensor(SensorEntity):
             "headsign": self.arrival_info["headsign"],
             "route": self.arrival_info["routeShortName"],
         }
-
