@@ -103,7 +103,6 @@ class OneBusAwayCoordinator:
         # Schedule the next poll
         self.polling_job = async_track_time_interval(self.hass, self.async_refresh, interval)
 
-
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
 
@@ -134,8 +133,12 @@ class OneBusAwayArrivalSensor(SensorEntity):
 
     @property
     def name(self) -> str:
-        """Dynamically set the sensor name."""
-        return f"{self.stop_id}_arrival_{self.index + 1}"
+        """Friendly name for the sensor."""
+        if self.arrival_info:
+            route = self.arrival_info["routeShortName"]
+            headsign = self.arrival_info["headsign"]
+            return f"{route} to {headsign}"
+        return f"Bus Stop {self.stop_id} Arrival {self.index + 1}"
 
     @property
     def extra_state_attributes(self):
@@ -147,3 +150,4 @@ class OneBusAwayArrivalSensor(SensorEntity):
             "headsign": self.arrival_info["headsign"],
             "route": self.arrival_info["routeShortName"],
         }
+
