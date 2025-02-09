@@ -33,11 +33,12 @@ class OneBusAwayApiClient:
         self._stop = stop
         self._session = session
 
-    async def async_get_data(self) -> any:
-        """Get data from the API."""
+    async def async_get_data(self, stop_id: str | None = None) -> any:
+        """Get data from the API for the specified stop ID."""
+        stop_id = stop_id if stop_id else self._stop
         return await self._api_wrapper(
             method="get",
-            url=f"{self._url}/where/arrivals-and-departures-for-stop/{self._stop}.json?key={self._key}",
+            url=f"{self._url}/where/arrivals-and-departures-for-stop/{stop_id}.json?key={self._key}",
         )
 
     async def _api_wrapper(
