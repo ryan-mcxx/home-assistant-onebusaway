@@ -7,11 +7,10 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
-    SensorDeviceClass,
 )
 from homeassistant.const import CONF_URL, CONF_ID, CONF_TOKEN
 from homeassistant.helpers.event import async_track_point_in_time
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.entity_platform import async_add_entities
 
 from .const import ATTRIBUTION, DOMAIN, NAME, VERSION
 from .api import OneBusAwayApiClient
@@ -31,19 +30,20 @@ async def async_setup_entry(hass, entry, async_add_devices):
         url=entry.data[CONF_URL],
         key=entry.data[CONF_TOKEN],
         stop=entry.data[CONF_ID],
-        session=async_get_clientsession(hass),
+        session=hass.helpers.aiohttp_client.async_get_clientsession(),
     )
-    sensor = OneBusAwaySensor(client, entry.data[CONF_ID])
+    sensor = OneBusAwaySensor(client, entry.data[CONF_ID], async_add_devices)
     async_add_devices([sensor])
 
 
 class OneBusAwaySensor(SensorEntity):
     """OneBusAway Parent Sensor class."""
 
-    def __init__(self, client: OneBusAwayApiClient, stop: str) -> None:
+    def __init__(self, client: OneBusAwayApiClient, stop: str, async_add_devices) -> None:
         """Initialize the parent sensor."""
         self.client = client
         self.stop = stop
+        self.async_add_devices = async_add_devices
         self._attr_unique_id = stop
         self._attr_name = "OneBusAway Sensor"
         self._attr_device_info = DeviceInfo(
@@ -88,7 +88,7 @@ class OneBusAwaySensor(SensorEntity):
             if index not in self.child_sensors:
                 child_sensor = OneBusAwayArrivalSensor(self.stop, index, arrival)
                 self.child_sensors[index] = child_sensor
-                self.hass.async_create_task(self.hass.helpers.entity_platform.async_add_entities([child_sensor]))
+                self.hass.async_create_task(self.async_add_devices([child_sensor]))
             else:
                 self.child_sensors[index].update_arrival(arrival)
 
