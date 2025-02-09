@@ -171,4 +171,14 @@ class OneBusAwayArrivalSensor(SensorEntity):
             return {}
         return {
             "arrival time": self.arrival_info["type"],
+            "route": self.arrival_info["routeShortName"],
         }
+        
+    @property
+    def icon(self) -> str:
+        """Return the appropriate icon based on route."""
+        if self.arrival_info:
+            route_name = self.arrival_info["routeShortName"].lower()
+            if "train" in route_name:
+                return "mdi:train"
+        return "mdi:bus"
