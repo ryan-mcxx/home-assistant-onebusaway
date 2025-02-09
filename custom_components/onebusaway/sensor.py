@@ -182,5 +182,5 @@ class OneBusAwayArrivalSensor(SensorEntity):
             if self.arrival_info["type"].lower() == "predicted":
                 return "mdi:rss"
             else:
-                return "mdi:timeline-clock-outline"
+                return "mdi:timetable"
         return "mdi:bus"
