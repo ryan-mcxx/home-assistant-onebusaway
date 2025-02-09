@@ -1,9 +1,6 @@
-"""Sample API Client."""
 from __future__ import annotations
-
 import asyncio
 import socket
-
 import aiohttp
 import async_timeout
 
@@ -50,31 +47,45 @@ class OneBusAwayApiClient:
         data: dict | None = None,
         headers: dict | None = None,
     ) -> any:
-        """Get information from the API."""
-        try:
-            async with async_timeout.timeout(10):
-                response = await self._session.request(
-                    method=method,
-                    url=url,
-                    headers=headers,
-                    json=data,
-                )
-                if response.status in (401, 403):
-                    raise OneBusAwayApiClientAuthenticationError(
-                        "Invalid credentials",
-                    )
-                response.raise_for_status()
-                return await response.json()
+        """Get information from the API with rate limit handling."""
+        max_retries = 5
+        backoff_factor = 2  # Exponential backoff factor
 
-        except asyncio.TimeoutError as exception:
-            raise OneBusAwayApiClientCommunicationError(
-                "Timeout error fetching information",
-            ) from exception
-        except (aiohttp.ClientError, socket.gaierror) as exception:
-            raise OneBusAwayApiClientCommunicationError(
-                "Error fetching information",
-            ) from exception
-        except Exception as exception:  # pylint: disable=broad-except
-            raise OneBusAwayApiClientError(
-                "Something really wrong happened!"
-            ) from exception
+        for attempt in range(max_retries):
+            try:
+                async with async_timeout.timeout(10):
+                    response = await self._session.request(
+                        method=method,
+                        url=url,
+                        headers=headers,
+                        json=data,
+                    )
+                    if response.status == 429:
+                        if attempt < max_retries - 1:
+                            wait_time = backoff_factor ** attempt
+                            print(f"Rate limited. Retrying in {wait_time} seconds...")
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            raise OneBusAwayApiClientCommunicationError(
+                                "Exceeded maximum retry attempts due to rate limiting."
+                            )
+                    if response.status in (401, 403):
+                        raise OneBusAwayApiClientAuthenticationError(
+                            "Invalid credentials",
+                        )
+                    response.raise_for_status()
+                    return await response.json()
+
+            except asyncio.TimeoutError as exception:
+                raise OneBusAwayApiClientCommunicationError(
+                    "Timeout error fetching information",
+                ) from exception
+            except (aiohttp.ClientError, socket.gaierror) as exception:
+                raise OneBusAwayApiClientCommunicationError(
+                    "Error fetching information",
+                ) from exception
+            except Exception as exception:  # pylint: disable=broad-except
+                raise OneBusAwayApiClientError(
+                    "Something really wrong happened!"
+                ) from exception
