@@ -166,6 +166,12 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_extra_state_attributes = {
             "Type": arrival["type"]
         }
+        self._arrival_data = arrival
+
+    async def async_added_to_hass(self):
+        """Handle when entity is added to Home Assistant."""
+        # Write the state once the entity is fully registered
+        self.async_write_ha_state()
 
     def update_arrival(self, arrival: dict):
         """Update the sensor with new arrival data."""
@@ -174,6 +180,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_extra_state_attributes = {
             "Type": arrival["type"]
         }
+        self._arrival_data = arrival
         # Write state only after the sensor is fully registered
         if self.hass:
             self.async_write_ha_state()
