@@ -17,11 +17,11 @@ async def async_setup_entry(hass, entry, async_add_devices):
     client = OneBusAwayApiClient(
         url=entry.data[CONF_URL],
         key=entry.data[CONF_TOKEN],
-        stop=entry.data[CONF_ID],
         session=async_get_clientsession(hass),
     )
 
-    coordinator = OneBusAwayCoordinator(hass, client, async_add_devices)
+    stop_id = entry.data[CONF_ID]  # Extract stop directly from the config
+    coordinator = OneBusAwayCoordinator(hass, client, async_add_devices, stop_id)
     await coordinator.async_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
@@ -29,10 +29,11 @@ async def async_setup_entry(hass, entry, async_add_devices):
 class OneBusAwayCoordinator:
     """Manages dynamic sensor creation and updates."""
 
-    def __init__(self, hass, client, async_add_devices):
+    def __init__(self, hass, client, async_add_devices, stop_id):
         self.hass = hass
         self.client = client
         self.async_add_devices = async_add_devices
+        self.stop_id = stop_id
         self.sensors = {}
 
     async def async_refresh(self):
@@ -43,9 +44,9 @@ class OneBusAwayCoordinator:
         # Update or create sensors for each arrival
         new_sensors = []
         for index, arrival in enumerate(arrivals):
-            unique_id = f"{self.client.stop}_arrival_{index}"
+            unique_id = f"{self.stop_id}_arrival_{index}"
             if unique_id not in self.sensors:
-                sensor = OneBusAwayArrivalSensor(self.client, arrival, index)
+                sensor = OneBusAwayArrivalSensor(self.stop_id, arrival, index)
                 self.sensors[unique_id] = sensor
                 new_sensors.append(sensor)
             else:
@@ -82,13 +83,13 @@ class OneBusAwayCoordinator:
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
 
-    def __init__(self, client, arrival_info, index) -> None:
+    def __init__(self, stop_id, arrival_info, index) -> None:
         """Initialize the sensor."""
-        self.client = client
+        self.stop_id = stop_id
         self.index = index
-        self._attr_unique_id = f"{client.stop}_arrival_{index}"
+        self._attr_unique_id = f"{stop_id}_arrival_{index}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, client.stop)},
+            identifiers={(DOMAIN, stop_id)},
             name=NAME,
             model=VERSION,
             manufacturer=NAME,
