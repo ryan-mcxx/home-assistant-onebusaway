@@ -26,45 +26,52 @@ async def async_setup_entry(hass, entry, async_add_devices):
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
 
-class OneBusAwayCoordinator:
-    """Manages dynamic sensor creation and updates."""
+class OneBusAwaySensorCoordinator:
+    """Manages and updates OneBusAway sensors."""
 
-    def __init__(self, hass, client, async_add_devices, stop_id):
-        self.hass = hass
-        self.client = client
-        self.async_add_devices = async_add_devices
+    def __init__(self, stop_id, client, async_add_entities):
+        """Initialize the coordinator."""
         self.stop_id = stop_id
-        self.sensors = {}
-        self.polling_job = None
+        self.client = client
+        self.sensors = []
+        self.async_add_entities = async_add_entities
 
-    async def async_refresh(self, _=None):
-        """Fetch new data and update or create sensors."""
-        data = await self.client.async_get_data()
-        arrivals = self.compute_arrivals(time(), data)
+    async def async_update(self):
+        """Retrieve the latest state and update sensors."""
+        self.data = await self.client.async_get_data()
 
-        # Update or create sensors for each arrival
-        new_sensors = []
-        for index, arrival in enumerate(arrivals):
-            unique_id = f"{self.stop_id}_arrival_{index}"
-            if unique_id not in self.sensors:
-                sensor = OneBusAwayArrivalSensor(self.stop_id, arrival, index)
-                self.sensors[unique_id] = sensor
-                new_sensors.append(sensor)
+        # Compute new arrival times
+        new_arrival_times = self.compute_arrivals(time())
+
+        # Ensure enough sensors are created for all arrivals
+        if len(new_arrival_times) > len(self.sensors):
+            for index in range(len(self.sensors), len(new_arrival_times)):
+                new_sensor = OneBusAwayArrivalSensor(
+                    stop_id=self.stop_id,
+                    arrival_info=new_arrival_times[index],
+                    index=index,
+                )
+                self.sensors.append(new_sensor)
+                self.async_add_entities([new_sensor])
+
+        # Update existing sensors
+        for index, sensor in enumerate(self.sensors):
+            if index < len(new_arrival_times):
+                # Update existing sensor with arrival data
+                sensor.update_arrival(new_arrival_times[index])
             else:
-                # Update existing sensor
-                self.sensors[unique_id].update_arrival(arrival)
+                # No corresponding arrival, set state to None
+                sensor.clear_arrival()
 
-        if new_sensors:
-            self.async_add_devices(new_sensors)
+    def compute_arrivals(self, after) -> list[dict]:
+        """Compute all upcoming arrival times after the given timestamp."""
+        if self.data is None:
+            return []
 
-        # Adjust polling interval
-        self._schedule_next_poll(arrivals)
-
-    def compute_arrivals(self, after, data) -> list[dict]:
-        """Compute all upcoming arrivals."""
         current = after * 1000
 
-        def extract_departure(d):
+        def extract_departure(d) -> dict | None:
+            """Extract time, type, route name, and trip headsign."""
             predicted = d.get("predictedArrivalTime")
             scheduled = d.get("scheduledDepartureTime")
             trip_headsign = d.get("tripHeadsign", "Unknown")
@@ -76,32 +83,15 @@ class OneBusAwayCoordinator:
                 return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign, "routeShortName": route_name}
             return None
 
+        # Collect valid departures
         departures = [
-            dep for d in data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
+            dep for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
             if (dep := extract_departure(d)) is not None
         ]
 
+        # Sort by time
         return sorted(departures, key=lambda x: x["time"])
 
-    def _schedule_next_poll(self, arrivals):
-        """Schedule the next poll based on arrival times."""
-        if self.polling_job:
-            self.polling_job()  # Cancel previous job
-
-        # Determine polling interval
-        if arrivals:
-            next_arrival_time = arrivals[0]["time"]
-            seconds_until_next_arrival = next_arrival_time - time()
-
-            if seconds_until_next_arrival <= 300:  # 5 minutes or less
-                interval = timedelta(seconds=30)
-            else:
-                interval = timedelta(seconds=60)
-        else:
-            interval = timedelta(seconds=60)  # Default if no arrivals
-
-        # Schedule the next poll
-        self.polling_job = async_track_time_interval(self.hass, self.async_refresh, interval)
 
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
@@ -126,6 +116,11 @@ class OneBusAwayArrivalSensor(SensorEntity):
     def update_arrival(self, arrival_info):
         """Update the sensor with new arrival information."""
         self.arrival_info = arrival_info
+        self.async_write_ha_state()
+
+    def clear_arrival(self):
+        """Clear the arrival state when no data is available."""
+        self.arrival_info = None
         self.async_write_ha_state()
 
     @property
