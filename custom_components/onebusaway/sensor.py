@@ -20,7 +20,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
         session=async_get_clientsession(hass),
     )
 
-    stop_id = entry.data[CONF_ID]  # Extract stop directly from the config
+    stop_id = entry.data[CONF_ID]
     coordinator = OneBusAwayCoordinator(hass, client, async_add_devices, stop_id)
     await coordinator.async_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
