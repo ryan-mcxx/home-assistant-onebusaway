@@ -45,8 +45,7 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 _errors["base"] = "unknown"
             else:
                 return self.async_create_entry(
-                    title=arrival["routeShortName"],
-                    description=arrival["routeLongName"],
+                    title=f"Stop {stop}",
                     data=user_input,
                 )
 
