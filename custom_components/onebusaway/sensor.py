@@ -130,7 +130,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_unique_id = f"{stop_id}_arrival_{index}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, stop_id)},
-            name=NAME,
+            name=f"Stop {stop_id}",
             model=VERSION,
             manufacturer=NAME,
         )
