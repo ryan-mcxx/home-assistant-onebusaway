@@ -62,17 +62,13 @@ class OneBusAwaySensorCoordinator:
                 self.sensors.append(new_sensor)
                 self.async_add_entities([new_sensor])
 
-        # Add the situation count sensor
-        if not any(isinstance(sensor, OneBusAwaySituationSensor) for sensor in self.sensors):
-            situation_sensor = OneBusAwaySituationSensor(self.stop_id, self.client)
-            self.sensors.append(situation_sensor)
-            self.async_add_entities([situation_sensor])
-
         # Update existing sensors
         for index, sensor in enumerate(self.sensors):
-            if isinstance(sensor, OneBusAwayArrivalSensor) and index < len(new_arrival_times):
+            if index < len(new_arrival_times):
+                # Update existing sensor with arrival data
                 sensor.update_arrival(new_arrival_times[index])
-            elif isinstance(sensor, OneBusAwayArrivalSensor):
+            else:
+                # No corresponding arrival, set state to None
                 sensor.clear_arrival()
 
     def compute_arrivals(self, after) -> list[dict]:
@@ -95,12 +91,23 @@ class OneBusAwaySensorCoordinator:
                 return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign, "routeShortName": route_name}
             return None
 
+        # Collect valid departures
         departures = [
             dep for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
             if (dep := extract_departure(d)) is not None
         ]
 
+        # Sort by time
         return sorted(departures, key=lambda x: x["time"])
+
+    def next_arrival_within_5_minutes(self) -> bool:
+        """Check if the next arrival is within 5 minutes."""
+        if self.data:
+            arrivals = self.compute_arrivals(time())
+            if arrivals:
+                next_arrival = arrivals[0]["time"]
+                return next_arrival <= (time() + 5 * 60)
+        return False
 
     async def schedule_updates(self):
         """Schedule sensor updates dynamically."""
@@ -112,15 +119,6 @@ class OneBusAwaySensorCoordinator:
         if self._unsub:
             self._unsub()
         self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
-
-    def next_arrival_within_5_minutes(self) -> bool:
-        """Check if the next arrival is within 5 minutes."""
-        if self.data:
-            arrivals = self.compute_arrivals(time())
-            if arrivals:
-                next_arrival = arrivals[0]["time"]
-                return next_arrival <= (time() + 5 * 60)
-        return False
 
 
 class OneBusAwayArrivalSensor(SensorEntity):
@@ -140,6 +138,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_attribution = ATTRIBUTION
         self.arrival_info = arrival_info
+        # Explicitly set a custom entity ID
         self.entity_id = f"sensor.onebusaway_{stop_id}_arrival_{index}"
 
     def update_arrival(self, arrival_info):
@@ -175,7 +174,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
             "arrival time": self.arrival_info["type"],
             "route": self.arrival_info["routeShortName"],
         }
-
+        
     @property
     def icon(self) -> str:
         """Return the icon for this sensor based on arrival type."""
@@ -185,29 +184,3 @@ class OneBusAwayArrivalSensor(SensorEntity):
             else:
                 return "mdi:timeline-clock-outline"
         return "mdi:bus"
-
-
-class OneBusAwaySituationSensor(SensorEntity):
-    """Sensor for counting the number of transit situations."""
-
-    def __init__(self, stop_id, client) -> None:
-        """Initialize the sensor."""
-        self.stop_id = stop_id
-        self.client = client
-        self._attr_unique_id = f"{stop_id}_situations"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, stop_id)},
-            name=f"Stop {stop_id}",
-            model=VERSION,
-            manufacturer=NAME,
-        )
-        self._attr_attribution = ATTRIBUTION
-        self._attr_name = f"OneBusAway {stop_id} Situations"
-        self.situation_count = 0
-
-    async def async_update(self):
-        """Update the sensor with the latest situation count."""
-        situations = await self.client.async_get_situations()
-        self.situation_count = len(situations)
-        self._attr_native_value = self.situation_count
-        self.async_write_ha_state()
