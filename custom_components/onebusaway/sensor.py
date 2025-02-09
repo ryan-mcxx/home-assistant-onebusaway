@@ -179,6 +179,6 @@ class OneBusAwayArrivalSensor(SensorEntity):
         """Return the appropriate icon based on route."""
         if self.arrival_info:
             route_name = self.arrival_info["routeShortName"].lower()
-            if "train" in route_name:
+            if "line" in route_name:
                 return "mdi:train"
         return "mdi:bus"
