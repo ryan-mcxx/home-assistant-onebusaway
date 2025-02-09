@@ -36,8 +36,8 @@ class OneBusAwaySensorCoordinator:
         self.stop_id = stop_id
         self.client = client
         self.sensors = []
-        self.situations_sensor = OneBusAwaySituationsSensor(stop_id)
         self.async_add_entities = async_add_entities
+        self.situations_sensor = None  # Declare situations sensor here
         self._unsub = None
 
     async def async_refresh(self):
@@ -73,62 +73,15 @@ class OneBusAwaySensorCoordinator:
 
         # Handle situations sensor update
         situations = self.data.get("data", {}).get("references", {}).get("situations", [])
-        self.situations_sensor.update_situations(situations)
 
-        # Add the situations sensor if it hasn't been added
-        if self.situations_sensor not in self.sensors:
+        # Create situations sensor if it doesn't exist
+        if not self.situations_sensor:
+            self.situations_sensor = OneBusAwaySituationsSensor(self.stop_id)
             self.async_add_entities([self.situations_sensor])
             self.sensors.append(self.situations_sensor)
 
-    def compute_arrivals(self, after) -> list[dict]:
-        """Compute all upcoming arrival times after the given timestamp."""
-        if self.data is None:
-            return []
-
-        current = after * 1000
-
-        def extract_departure(d) -> dict | None:
-            """Extract time, type, route name, and trip headsign."""
-            predicted = d.get("predictedArrivalTime")
-            scheduled = d.get("scheduledDepartureTime")
-            trip_headsign = d.get("tripHeadsign", "Unknown")
-            route_name = d.get("routeShortName", "Unknown Route")
-
-            if predicted and predicted > current:
-                return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign, "routeShortName": route_name}
-            elif scheduled and scheduled > current:
-                return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign, "routeShortName": route_name}
-            return None
-
-        # Collect valid departures
-        departures = [
-            dep for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
-            if (dep := extract_departure(d)) is not None
-        ]
-
-        # Sort by time
-        return sorted(departures, key=lambda x: x["time"])
-
-    def next_arrival_within_5_minutes(self) -> bool:
-        """Check if the next arrival is within 5 minutes."""
-        if self.data:
-            arrivals = self.compute_arrivals(time())
-            if arrivals:
-                next_arrival = arrivals[0]["time"]
-                return next_arrival <= (time() + 5 * 60)
-        return False
-
-    async def schedule_updates(self):
-        """Schedule sensor updates dynamically."""
-        async def update_interval(_):
-            await self.async_update()
-            await self.schedule_updates()
-
-        next_interval = timedelta(seconds=30 if self.next_arrival_within_5_minutes() else 60)
-        if self._unsub:
-            self._unsub()
-        self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
-
+        # Update situations sensor with new data
+        self.situations_sensor.update_situations(situations)
 
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
@@ -193,7 +146,6 @@ class OneBusAwayArrivalSensor(SensorEntity):
             else:
                 return "mdi:timeline-clock-outline"
         return "mdi:bus"
-
 
 class OneBusAwaySituationsSensor(SensorEntity):
     """Sensor for tracking situations affecting the bus stop."""
