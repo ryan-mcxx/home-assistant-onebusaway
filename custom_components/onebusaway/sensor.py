@@ -121,8 +121,10 @@ class OneBusAwayArrivalSensor(SensorEntity):
         self._attr_attribution = ATTRIBUTION
         self.arrival_info = arrival_info
 
-        # Suggested entity ID for Home Assistant to adopt
-        self._attr_suggested_object_id = f"{stop_id}_arrival_{index}"
+    async def async_added_to_hass(self):
+        """Set entity_id explicitly when added to Home Assistant."""
+        self._attr_entity_id = f"sensor.{self.stop_id}_arrival_{self.index}"
+        await super().async_added_to_hass()
 
     def update_arrival(self, arrival_info):
         """Update the sensor with new arrival information."""
@@ -153,3 +155,4 @@ class OneBusAwayArrivalSensor(SensorEntity):
             "headsign": self.arrival_info["headsign"],
             "route": self.arrival_info["routeShortName"],
         }
+
