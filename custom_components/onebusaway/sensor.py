@@ -170,7 +170,5 @@ class OneBusAwayArrivalSensor(SensorEntity):
         if not self.arrival_info:
             return {}
         return {
-            "type": self.arrival_info["type"],
-            "headsign": self.arrival_info["headsign"],
-            "route": self.arrival_info["routeShortName"],
+            "arrival time": self.arrival_info["type"],
         }
