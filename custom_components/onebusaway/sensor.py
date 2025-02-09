@@ -36,6 +36,7 @@ class OneBusAwaySensorCoordinator:
         self.stop_id = stop_id
         self.client = client
         self.sensors = []
+        self.situations_sensor = OneBusAwaySituationsSensor(stop_id)
         self.async_add_entities = async_add_entities
         self._unsub = None
 
@@ -64,12 +65,20 @@ class OneBusAwaySensorCoordinator:
 
         # Update existing sensors
         for index, sensor in enumerate(self.sensors):
-            if index < len(new_arrival_times):
-                # Update existing sensor with arrival data
-                sensor.update_arrival(new_arrival_times[index])
-            else:
-                # No corresponding arrival, set state to None
-                sensor.clear_arrival()
+            if isinstance(sensor, OneBusAwayArrivalSensor):
+                if index < len(new_arrival_times):
+                    sensor.update_arrival(new_arrival_times[index])
+                else:
+                    sensor.clear_arrival()
+
+        # Handle situations sensor update
+        situations = self.data.get("data", {}).get("references", {}).get("situations", [])
+        self.situations_sensor.update_situations(situations)
+
+        # Add the situations sensor if it hasn't been added
+        if self.situations_sensor not in self.sensors:
+            self.async_add_entities([self.situations_sensor])
+            self.sensors.append(self.situations_sensor)
 
     def compute_arrivals(self, after) -> list[dict]:
         """Compute all upcoming arrival times after the given timestamp."""
@@ -174,7 +183,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
             "arrival time": self.arrival_info["type"],
             "route": self.arrival_info["routeShortName"],
         }
-        
+
     @property
     def icon(self) -> str:
         """Return the icon for this sensor based on arrival type."""
@@ -185,3 +194,41 @@ class OneBusAwayArrivalSensor(SensorEntity):
                 return "mdi:timeline-clock-outline"
         return "mdi:bus"
 
+
+class OneBusAwaySituationsSensor(SensorEntity):
+    """Sensor for tracking situations affecting the bus stop."""
+
+    def __init__(self, stop_id: str) -> None:
+        """Initialize the sensor."""
+        self.stop_id = stop_id
+        self._attr_unique_id = f"{stop_id}_situations"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, stop_id)},
+            name=f"Situations for Stop {stop_id}",
+            model=VERSION,
+            manufacturer=NAME,
+        )
+        self._situations = []
+
+        # Explicitly set a custom entity ID
+        self.entity_id = f"sensor.onebusaway_{stop_id}_situations"
+
+    def update_situations(self, situations: list[dict]) -> None:
+        """Update the state and attributes based on new situation data."""
+        self._situations = situations
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of active situations."""
+        return len(self._situations)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return situation details as attributes."""
+        attributes = {}
+        for index, situation in enumerate(self._situations):
+            reason = situation.get("reason", "Unknown Reason")
+            summary = situation.get("summary", {}).get("value", "No Summary")
+            attributes[f"situation_{index + 1}"] = f"{reason} - {summary}"
+        return attributes
