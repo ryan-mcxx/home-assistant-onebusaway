@@ -21,7 +21,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
     )
 
     stop_id = entry.data[CONF_ID]
-    coordinator = OneBusAwayCoordinator(hass, client, async_add_devices, stop_id)
+    coordinator = OneBusAwaySensorCoordinator(hass, client, async_add_devices, stop_id)
     await coordinator.async_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
@@ -29,12 +29,19 @@ async def async_setup_entry(hass, entry, async_add_devices):
 class OneBusAwaySensorCoordinator:
     """Manages and updates OneBusAway sensors."""
 
-    def __init__(self, stop_id, client, async_add_entities):
+    def __init__(self, hass, client, async_add_entities, stop_id):
         """Initialize the coordinator."""
+        self.hass = hass
         self.stop_id = stop_id
         self.client = client
         self.sensors = []
         self.async_add_entities = async_add_entities
+        self._unsub = None
+
+    async def async_refresh(self):
+        """Retrieve the latest state and update sensors."""
+        await self.async_update()
+        await self.schedule_updates()
 
     async def async_update(self):
         """Retrieve the latest state and update sensors."""
@@ -91,6 +98,26 @@ class OneBusAwaySensorCoordinator:
 
         # Sort by time
         return sorted(departures, key=lambda x: x["time"])
+
+    def next_arrival_within_5_minutes(self) -> bool:
+        """Check if the next arrival is within 5 minutes."""
+        if self.data:
+            arrivals = self.compute_arrivals(time())
+            if arrivals:
+                next_arrival = arrivals[0]["time"]
+                return next_arrival <= (time() + 5 * 60)
+        return False
+
+    async def schedule_updates(self):
+        """Schedule sensor updates dynamically."""
+        async def update_interval(_):
+            await self.async_update()
+            await self.schedule_updates()
+
+        next_interval = timedelta(seconds=30 if self.next_arrival_within_5_minutes() else 60)
+        if self._unsub:
+            self._unsub()
+        self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
 
 
 class OneBusAwayArrivalSensor(SensorEntity):
