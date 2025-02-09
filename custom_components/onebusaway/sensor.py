@@ -135,10 +135,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
     @property
     def name(self) -> str:
         """Dynamically set the sensor name."""
-        if self.arrival_info:
-            arrival = self.arrival_info
-            return f"{arrival['routeShortName']} to {arrival['headsign']} (Arrival {self.index + 1})"
-        return f"OneBusAway Arrival {self.index + 1}"
+        return f"{self.stop_id}_arrival_{self.index + 1}"
 
     @property
     def extra_state_attributes(self):
