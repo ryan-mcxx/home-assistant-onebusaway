@@ -100,13 +100,13 @@ class OneBusAwaySensorCoordinator:
         # Sort by time
         return sorted(departures, key=lambda x: x["time"])
 
-    def next_arrival_within_5_minutes(self) -> bool:
-        """Check if the next arrival is within 5 minutes."""
+    def next_arrival_within_10_minutes(self) -> bool:
+        """Check if the next arrival is within 10 minutes."""
         if self.data:
             arrivals = self.compute_arrivals(time())
             if arrivals:
                 next_arrival = arrivals[0]["time"]
-                return next_arrival <= (time() + 5 * 60)
+                return next_arrival <= (time() + 10 * 60)
         return False
 
     async def schedule_updates(self):
@@ -115,7 +115,7 @@ class OneBusAwaySensorCoordinator:
             await self.async_update()
             await self.schedule_updates()
 
-        next_interval = timedelta(seconds=30 if self.next_arrival_within_5_minutes() else 60)
+        next_interval = timedelta(seconds=60 if self.next_arrival_within_10_minutes() else 300)
         if self._unsub:
             self._unsub()
         self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
