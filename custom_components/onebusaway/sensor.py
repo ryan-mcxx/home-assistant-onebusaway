@@ -7,9 +7,12 @@ from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.const import CONF_URL, CONF_ID, CONF_TOKEN
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
+import logging
 
 from .const import ATTRIBUTION, DOMAIN, NAME, VERSION
 from .api import OneBusAwayApiClient
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -45,12 +48,18 @@ class OneBusAwaySensorCoordinator:
 
     async def async_refresh(self):
         """Retrieve the latest state and update sensors."""
+        _LOGGER.debug("Refreshing data for stop %s", self.stop_id)
         await self.async_update()
         await self.schedule_updates()
 
     async def async_update(self):
         """Retrieve the latest state and update sensors."""
-        self.data = await self.client.async_get_data(self.stop_id)
+        try:
+            self.data = await self.client.async_get_data(self.stop_id)
+            _LOGGER.debug("Data for stop %s: %s", self.stop_id, self.data)
+        except Exception as e:
+            _LOGGER.error("Error fetching data for stop %s: %s", self.stop_id, e)
+            return
 
         # Compute new arrival times
         new_arrival_times = self.compute_arrivals(time())
@@ -116,10 +125,14 @@ class OneBusAwaySensorCoordinator:
     async def schedule_updates(self):
         """Schedule sensor updates dynamically."""
         async def update_interval(_):
+            _LOGGER.debug("Updating stop %s", self.stop_id)
             await self.async_update()
             await self.schedule_updates()
 
-        next_interval = timedelta(seconds=60 if self.next_arrival_within_10_minutes() else 300)
+        next_interval_seconds = 60 if self.compute_arrivals(time()) and self.next_arrival_within_10_minutes() else 300
+        _LOGGER.debug("Next update for stop %s in %d seconds", self.stop_id, next_interval_seconds)
+
+        next_interval = timedelta(seconds=next_interval_seconds)
         if self._unsub:
             self._unsub()
         self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
