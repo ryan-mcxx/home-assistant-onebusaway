@@ -49,8 +49,8 @@ class OneBusAwayApiClient:
         headers: dict | None = None,
     ) -> any:
         """Get information from the API with rate limit handling."""
-        max_retries = 5
-        backoff_factor = 2  # Exponential backoff factor
+        max_retries = 4
+        backoff_factor = 3  # Exponential backoff factor
 
         for attempt in range(max_retries):
             try:
