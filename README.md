@@ -45,4 +45,12 @@ filter:
     - state: unavailable
 sort:
   method: state
+visibility:
+  - condition: state
+    entity: sensor.onebusaway_[stop_id_number]_arrival_0
+    state_not: unavailable
+  - condition: state
+    entity: sensor.onebusaway_[stop_id_number]_arrival_0
+    state_not: unknown
+
 ```
