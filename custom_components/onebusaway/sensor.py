@@ -253,21 +253,26 @@ class OneBusAwaySituationSensor(SensorEntity):
         """Icon for the sensor."""
         return "mdi:alert-circle-check"
 
+    def _sanitize_text(self, text: str) -> str:
+        """Sanitize text by removing all extraneous escape characters, including line breaks."""
+        # Replace multiple spaces from \r\n sequences and remove all newlines
+        return re.sub(r"[\r\n]+", " ", text).strip()
+
     @property
     def extra_state_attributes(self):
         """Return additional metadata for situations."""
         attributes = {}
         for index, situation in enumerate(self.situations):
-            reason = situation.get("reason", "Unknown")
+            # Extract and sanitize text attributes
+            description = self._sanitize_text(situation.get("description", {}).get("value", ""))
+            summary = self._sanitize_text(situation.get("summary", {}).get("value", ""))
+            reason = self._sanitize_text(situation.get("reason", "Not specified"))
             severity = situation.get("severity", "Unknown")
-            summary = situation.get("summary", {}).get("value", "No Summary")
-            description = situation.get("description", {}).get("value", "No Description")
 
             attributes[f"situation_{index + 1}"] = {
+                "description": description,
+                "summary": summary,
                 "reason": reason,
                 "severity": severity,
-                "summary": summary,
-                "description": description,
             }
         return attributes
-
