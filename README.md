@@ -19,7 +19,7 @@ Use HACS and add as a custom repository. Once the custom integration is installe
 There must be routes scheduled to arrive during setup, otherwise it will not complete.
 
 ## Recommended Configurations
-I recommend adding an exclusion filter in your recorder for the created sensors, to maintain database size.
+Add an exclusion filter in your recorder for the created sensors, to maintain database size.
 
 ```yaml
 recorder:
@@ -27,8 +27,15 @@ recorder:
     entity_globs:
       - sensor.onebusaway_*
 ```
+Use markdown card to display ongoing situations.
 
-I recommend using the [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) card to create a view of all incoming arrivals for a specific stop(s).
+```yaml
+type: markdown
+content: |
+  ## Situations
+  {{ states.sensor.onebusaway_[stop_id_number]_situations.attributes.markdown_content }}
+```
+Use custom [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) card to create a view of all incoming arrivals for a specific stop(s).
 
 ```yaml
 type: custom:auto-entities
@@ -47,10 +54,10 @@ sort:
   method: state
 visibility:
   - condition: state
-    entity: sensor.onebusaway_[stop_id_number]_arrival_0
+    entity: sensor.onebusaway_[stop_id_number]_arrival_1
     state_not: unavailable
   - condition: state
-    entity: sensor.onebusaway_[stop_id_number]_arrival_0
+    entity: sensor.onebusaway_[stop_id_number]_arrival_1
     state_not: unknown
 
 ```
