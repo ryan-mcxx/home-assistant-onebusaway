@@ -272,7 +272,8 @@ class OneBusAwaySituationSensor(SensorEntity):
                 attributes[f"situation_{index + 1}"] = {
                     "severity": severity,
                     "reason": reason,
-                    "summary_link": f"[{summary}]({url})"
+                    "summary_link": f"[{summary.replace('\n', ' ')}]({url})"
                 }
+                
         return attributes
 
