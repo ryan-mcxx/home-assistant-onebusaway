@@ -194,7 +194,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
             route = self.arrival_info["routeShortName"]
             headsign = self.arrival_info["headsign"]
             return f"{route} to {headsign}"
-        return f"OneBusAway {self.stop_id} Arrival {self.index + 1}"
+        return f"OneBusAway {self.stop_id} Arrival {self.index}"
 
     @property
     def extra_state_attributes(self):
@@ -263,7 +263,7 @@ class OneBusAwaySituationSensor(SensorEntity):
         """Return additional metadata for situations."""
         attributes = {}
         markdown_lines = []
-        
+    
         for index, situation in enumerate(self.situations):
             severity = situation.get("severity", "Unknown")
             reason = self._sanitize_text(situation.get("reason", "Not specified"))
@@ -271,13 +271,19 @@ class OneBusAwaySituationSensor(SensorEntity):
             url = situation.get("url", {}).get("value", "")
     
             if summary and url:
+                # Add divider only before the second and subsequent situations
+                if index > 0:
+                    markdown_lines.append("---")
                 markdown_lines.append(
-                    f"- **Severity:** {severity}, **Reason:** {reason}  \n"
-                    f"[{summary}]({url})"
+                    f"### Situation {index + 1}\n"
+                    f"**Severity:** {severity}  \n"
+                    f"**Reason:** {reason}  \n"
+                    f"[Read More: {summary}]({url})"
                 )
         
         attributes["markdown_content"] = "\n".join(markdown_lines)
         return attributes
+
 
 
 
