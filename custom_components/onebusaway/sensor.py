@@ -271,14 +271,13 @@ class OneBusAwaySituationSensor(SensorEntity):
             summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ").strip()
             url = situation.get("url", {}).get("value", "")
     
-            if summary and url:
-                # Add divider only before the second and subsequent situations
+            if summary:
                 if index > 0:
                     markdown_lines.append("\n---\n")
                 markdown_lines.append(
                     f"**Severity:** {severity}  \n"
                     f"**Reason:** {reason}  \n"
-                    f"[{summary}]({url})"
+                    f"[{summary}]({url})" if url else summary
                 )
     
         attributes["markdown_content"] = "\n".join(markdown_lines)
