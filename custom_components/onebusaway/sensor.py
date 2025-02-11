@@ -264,15 +264,14 @@ class OneBusAwaySituationSensor(SensorEntity):
         attributes = {}
         for index, situation in enumerate(self.situations):
             # Extract and sanitize text attributes
-            description = self._sanitize_text(situation.get("description", {}).get("value", ""))
-            summary = self._sanitize_text(situation.get("summary", {}).get("value", ""))
-            reason = self._sanitize_text(situation.get("reason", "Not specified"))
             severity = situation.get("severity", "Unknown")
+            reason = self._sanitize_text(situation.get("reason", "Not specified"))
+            summary = self._sanitize_text(situation.get("summary", {}).get("value", ""))
 
             attributes[f"situation_{index + 1}"] = {
-                "description": description,
-                "summary": summary,
-                "reason": reason,
                 "severity": severity,
+                "reason": reason,
+                "summary": summary,
+
             }
         return attributes
