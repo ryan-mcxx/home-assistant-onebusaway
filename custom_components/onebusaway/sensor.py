@@ -119,10 +119,12 @@ class OneBusAwaySensorCoordinator:
             return None
 
         # Collect valid departures
-        departures = [
-            dep for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
-            if (dep := extract_departure(d)) is not None
-        ]
+        departures = []
+        for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", []):
+            dep = extract_departure(d)
+            if dep is not None:
+                departures.append(dep)
+
 
         # Sort by time
         return sorted(departures, key=lambda x: x["time"])
