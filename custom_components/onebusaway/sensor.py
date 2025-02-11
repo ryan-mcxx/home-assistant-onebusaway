@@ -263,17 +263,16 @@ class OneBusAwaySituationSensor(SensorEntity):
         """Return additional metadata for situations."""
         attributes = {}
         for index, situation in enumerate(self.situations):
-            # Extract and sanitize text attributes
             severity = situation.get("severity", "Unknown")
             reason = self._sanitize_text(situation.get("reason", "Not specified"))
             summary = self._sanitize_text(situation.get("summary", {}).get("value", ""))
             url = situation.get("url", {}).get("value", "")
-
-            attributes[f"situation_{index + 1}"] = {
-                "severity": severity,
-                "reason": reason,
-                "summary": summary,
-                "url": url,
-
-            }
+    
+            if summary and url:
+                attributes[f"situation_{index + 1}"] = {
+                    "severity": severity,
+                    "reason": reason,
+                    "summary_link": f"[{summary}]({url})"
+                }
         return attributes
+
