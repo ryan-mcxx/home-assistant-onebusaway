@@ -267,7 +267,7 @@ class OneBusAwaySituationSensor(SensorEntity):
         for index, situation in enumerate(self.situations):
             severity = situation.get("severity", "Unknown")
             reason = self._sanitize_text(situation.get("reason", "Not specified"))
-            summary = self._sanitize_text(situation.get("description", {}).get("value", "")).replace("\n", " ").strip()
+            summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ").strip()
             url = situation.get("url", {}).get("value", "")
     
             if summary and url:
