@@ -215,7 +215,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
                 return "mdi:rss"
             else:
                 return "mdi:timetable"
-        return "mdi:bus"
+        return "mdi:train-bus"
 
 class OneBusAwaySituationSensor(SensorEntity):
     """Sensor to display the count of situations and their details."""
