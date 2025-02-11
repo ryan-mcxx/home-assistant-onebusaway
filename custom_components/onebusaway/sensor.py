@@ -60,10 +60,26 @@ class OneBusAwaySensorCoordinator:
         except Exception as e:
             _LOGGER.error("Error fetching data for stop %s: %s", self.stop_id, e)
             return
-
+    
         # Compute new arrival times
         new_arrival_times = self.compute_arrivals(time())
-
+    
+        # Update or create situation count sensor
+        situation_count = len(self.data.get("data", {}).get("references", {}).get("situations", []))
+        if not any(isinstance(sensor, OneBusAwaySituationSensor) for sensor in self.sensors):
+            # Create the situation count sensor if it doesn't exist
+            situation_sensor = OneBusAwaySituationSensor(
+                stop_id=self.stop_id,
+                situation_count=situation_count,
+            )
+            self.sensors.append(situation_sensor)
+            self.async_add_entities([situation_sensor])
+        else:
+            # Update existing situation sensor
+            for sensor in self.sensors:
+                if isinstance(sensor, OneBusAwaySituationSensor):
+                    sensor.update_situation_count(situation_count)
+    
         # Ensure enough sensors are created for all arrivals
         if len(new_arrival_times) > len(self.sensors):
             for index in range(len(self.sensors), len(new_arrival_times)):
@@ -74,15 +90,14 @@ class OneBusAwaySensorCoordinator:
                 )
                 self.sensors.append(new_sensor)
                 self.async_add_entities([new_sensor])
-
-        # Update existing sensors
+    
+        # Update existing arrival sensors
         for index, sensor in enumerate(self.sensors):
-            if index < len(new_arrival_times):
-                # Update existing sensor with arrival data
-                sensor.update_arrival(new_arrival_times[index])
-            else:
-                # No corresponding arrival, set state to None
-                sensor.clear_arrival()
+            if isinstance(sensor, OneBusAwayArrivalSensor):
+                if index < len(new_arrival_times):
+                    sensor.update_arrival(new_arrival_times[index])
+                else:
+                    sensor.clear_arrival()
 
     def compute_arrivals(self, after) -> list[dict]:
         """Compute all upcoming arrival times after the given timestamp."""
@@ -201,3 +216,40 @@ class OneBusAwayArrivalSensor(SensorEntity):
             else:
                 return "mdi:timetable"
         return "mdi:bus"
+
+class OneBusAwaySituationSensor(SensorEntity):
+    """Sensor to display the count of situations."""
+
+    def __init__(self, stop_id, situation_count) -> None:
+        """Initialize the situation sensor."""
+        self.stop_id = stop_id
+        self._attr_unique_id = f"{stop_id}_situation_count"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, stop_id)},
+            name=f"Stop {stop_id}",
+            model=VERSION,
+            manufacturer=NAME,
+        )
+        self._attr_attribution = ATTRIBUTION
+        self.situation_count = situation_count
+        self.entity_id = f"sensor.onebusaway_{stop_id}_situation_count"
+
+    def update_situation_count(self, situation_count: int):
+        """Update the situation count and refresh state."""
+        self.situation_count = situation_count
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> int:
+        """Return the situation count."""
+        return self.situation_count
+
+    @property
+    def name(self) -> str:
+        """Friendly name for the sensor."""
+        return f"Situations at Stop {self.stop_id}"
+
+    @property
+    def icon(self) -> str:
+        """Icon for the sensor."""
+        return "mdi:alert-circle-check"
