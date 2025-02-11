@@ -277,7 +277,7 @@ class OneBusAwaySituationSensor(SensorEntity):
                 markdown_lines.append(
                     f"**Severity:** {severity}  \n"
                     f"**Reason:** {reason}  \n"
-                    f'<small><a href="{url}">{summary}</a></small>'
+                    f"[{summary}]({url})"
                 )
     
         attributes["markdown_content"] = "\n".join(markdown_lines)
