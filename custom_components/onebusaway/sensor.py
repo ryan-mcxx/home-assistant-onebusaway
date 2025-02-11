@@ -78,25 +78,25 @@ class OneBusAwaySensorCoordinator:
                 if isinstance(sensor, OneBusAwaySituationSensor):
                     sensor.update_situations(situation_data)
 
-    
-        # Ensure enough sensors are created for all arrivals
-        if len(new_arrival_times) > len(self.sensors):
-            for index in range(len(self.sensors), len(new_arrival_times)):
+        # Ensure sensors match the number of arrivals
+        existing_arrival_sensors = [s for s in self.sensors if isinstance(s, OneBusAwayArrivalSensor)]
+        
+        # Create new sensors if needed
+        for index, arrival_info in enumerate(new_arrival_times):
+            if index < len(existing_arrival_sensors):
+                existing_arrival_sensors[index].update_arrival(arrival_info)
+            else:
                 new_sensor = OneBusAwayArrivalSensor(
                     stop_id=self.stop_id,
-                    arrival_info=new_arrival_times[index],
+                    arrival_info=arrival_info,
                     index=index,
                 )
                 self.sensors.append(new_sensor)
                 self.async_add_entities([new_sensor])
-    
-        # Update existing arrival sensors
-        for index, sensor in enumerate(self.sensors):
-            if isinstance(sensor, OneBusAwayArrivalSensor):
-                if index < len(new_arrival_times):
-                    sensor.update_arrival(new_arrival_times[index])
-                else:
-                    sensor.clear_arrival()
+
+        # Clear any extra sensors
+        for index in range(len(new_arrival_times), len(existing_arrival_sensors)):
+            existing_arrival_sensors[index].clear_arrival()
 
     def compute_arrivals(self, after) -> list[dict]:
         """Compute all upcoming arrival times after the given timestamp."""
@@ -124,7 +124,6 @@ class OneBusAwaySensorCoordinator:
             dep = extract_departure(d)
             if dep is not None:
                 departures.append(dep)
-
 
         # Sort by time
         return sorted(departures, key=lambda x: x["time"])
