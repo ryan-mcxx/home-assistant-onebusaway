@@ -275,7 +275,6 @@ class OneBusAwaySituationSensor(SensorEntity):
                 if index > 0:
                     markdown_lines.append("\n---\n")
                 markdown_lines.append(
-                    f"### Situation {index + 1}\n"
                     f"**Severity:** {severity}  \n"
                     f"**Reason:** {reason}  \n"
                     f"[{summary}]({url})"
