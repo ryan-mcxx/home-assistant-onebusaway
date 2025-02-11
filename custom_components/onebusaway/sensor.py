@@ -273,17 +273,14 @@ class OneBusAwaySituationSensor(SensorEntity):
             if summary and url:
                 # Add divider only before the second and subsequent situations
                 if index > 0:
-                    markdown_lines.append("---")
+                    markdown_lines.append("\n---\n")
                 markdown_lines.append(
                     f"### Situation {index + 1}\n"
                     f"**Severity:** {severity}  \n"
                     f"**Reason:** {reason}  \n"
-                    f"[Read More: {summary}]({url})"
+                    f"[{summary}]({url})"
                 )
-        
+    
         attributes["markdown_content"] = "\n".join(markdown_lines)
         return attributes
-
-
-
 
