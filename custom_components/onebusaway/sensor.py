@@ -262,18 +262,22 @@ class OneBusAwaySituationSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional metadata for situations."""
         attributes = {}
+        markdown_lines = []
+        
         for index, situation in enumerate(self.situations):
             severity = situation.get("severity", "Unknown")
             reason = self._sanitize_text(situation.get("reason", "Not specified"))
-            summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ")
+            summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ").strip()
             url = situation.get("url", {}).get("value", "")
     
             if summary and url:
-                attributes[f"situation_{index + 1}"] = {
-                    "severity": severity,
-                    "reason": reason,
-                    "summary_link": f"[{summary}]({url})"
-                }
+                markdown_lines.append(
+                    f"- **Severity:** {severity}, **Reason:** {reason}  \n"
+                    f"[{summary}]({url})"
+                )
+        
+        attributes["markdown_content"] = "\n".join(markdown_lines)
         return attributes
+
 
 
