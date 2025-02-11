@@ -65,20 +65,19 @@ class OneBusAwaySensorCoordinator:
         new_arrival_times = self.compute_arrivals(time())
     
         # Update or create situation count sensor
-        situation_count = len(self.data.get("data", {}).get("references", {}).get("situations", []))
+        situation_data = self.data.get("data", {}).get("references", {}).get("situations", [])
         if not any(isinstance(sensor, OneBusAwaySituationSensor) for sensor in self.sensors):
-            # Create the situation count sensor if it doesn't exist
             situation_sensor = OneBusAwaySituationSensor(
                 stop_id=self.stop_id,
-                situation_count=situation_count,
+                situations=situation_data,
             )
             self.sensors.append(situation_sensor)
             self.async_add_entities([situation_sensor])
         else:
-            # Update existing situation sensor
             for sensor in self.sensors:
                 if isinstance(sensor, OneBusAwaySituationSensor):
-                    sensor.update_situation_count(situation_count)
+                    sensor.update_situations(situation_data)
+
     
         # Ensure enough sensors are created for all arrivals
         if len(new_arrival_times) > len(self.sensors):
@@ -218,9 +217,9 @@ class OneBusAwayArrivalSensor(SensorEntity):
         return "mdi:bus"
 
 class OneBusAwaySituationSensor(SensorEntity):
-    """Sensor to display the count of situations."""
+    """Sensor to display the count of situations and their details."""
 
-    def __init__(self, stop_id, situation_count) -> None:
+    def __init__(self, stop_id, situations) -> None:
         """Initialize the situation sensor."""
         self.stop_id = stop_id
         self._attr_unique_id = f"{stop_id}_situation_count"
@@ -231,18 +230,18 @@ class OneBusAwaySituationSensor(SensorEntity):
             manufacturer=NAME,
         )
         self._attr_attribution = ATTRIBUTION
-        self.situation_count = situation_count
-        self.entity_id = f"sensor.onebusaway_{stop_id}_situation_count"
+        self.situations = situations
+        self.entity_id = f"sensor.onebusaway_{stop_id}_situations"
 
-    def update_situation_count(self, situation_count: int):
-        """Update the situation count and refresh state."""
-        self.situation_count = situation_count
+    def update_situations(self, situations: list[dict]):
+        """Update the situation details and refresh state."""
+        self.situations = situations
         self.async_write_ha_state()
 
     @property
     def native_value(self) -> int:
-        """Return the situation count."""
-        return self.situation_count
+        """Return the count of situations."""
+        return len(self.situations)
 
     @property
     def name(self) -> str:
@@ -253,3 +252,22 @@ class OneBusAwaySituationSensor(SensorEntity):
     def icon(self) -> str:
         """Icon for the sensor."""
         return "mdi:alert-circle-check"
+
+    @property
+    def extra_state_attributes(self):
+        """Return additional metadata for situations."""
+        attributes = {}
+        for index, situation in enumerate(self.situations):
+            reason = situation.get("reason", "Unknown")
+            severity = situation.get("severity", "Unknown")
+            summary = situation.get("summary", {}).get("value", "No Summary")
+            description = situation.get("description", {}).get("value", "No Description")
+
+            attributes[f"situation_{index + 1}"] = {
+                "reason": reason,
+                "severity": severity,
+                "summary": summary,
+                "description": description,
+            }
+        return attributes
+
