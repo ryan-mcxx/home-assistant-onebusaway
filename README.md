@@ -34,6 +34,10 @@ type: markdown
 content: |
   ## Situations
   {{ states.sensor.onebusaway_[stop_id_number]_situations.attributes.markdown_content }}
+visibility:
+  - condition: numeric_state
+    entity: sensor.onebusaway_[stop_id_number]_situations
+    above: 0
 ```
 Use custom [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) card to create a view of all incoming arrivals for a specific stop(s).
 
@@ -54,10 +58,10 @@ sort:
   method: state
 visibility:
   - condition: state
-    entity: sensor.onebusaway_[stop_id_number]_arrival_1
+    entity: sensor.onebusaway_[stop_id_number]_arrival_0
     state_not: unavailable
   - condition: state
-    entity: sensor.onebusaway_[stop_id_number]_arrival_1
+    entity: sensor.onebusaway_[stop_id_number]_arrival_0
     state_not: unknown
 
 ```
