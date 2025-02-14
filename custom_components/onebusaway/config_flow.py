@@ -106,10 +106,11 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Use a fallback title if 'name' is missing
             stop_name = self.stop_data["data"].get("entry", {}).get("name", "Unknown Stop")
-
+            stop_id = self.stop_data["data"].get("entry", {}).get("id", "Unknown Id")
+            
             # Create the final entry
             return self.async_create_entry(
-                title=stop_name,
+                title=f"{stop_name} ({stop_id})",
                 data=self.user_input,
             )
 
