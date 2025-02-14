@@ -1,7 +1,5 @@
 # OneBusAway Home Assistant Integration
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
-
 Integration to bring data from [OneBusAway](https://onebusaway.org/)
 into Home Assistant.  
 
