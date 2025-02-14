@@ -98,10 +98,8 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             # Store selected routes
-            selected_routes = [
-                {"id": route_id, "shortName": route_options[route_id]}
-                for route_id in user_input["selected_routes"]
-            ]
+            selected_routes = user_input["selected_routes"]  # Just store the route IDs
+
             self.user_input["selected_routes"] = selected_routes
 
             # Use a fallback title if 'name' is missing
