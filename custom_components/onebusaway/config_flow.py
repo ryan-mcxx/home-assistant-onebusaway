@@ -1,4 +1,3 @@
-"""Adds config flow for Blueprint."""
 from __future__ import annotations
 
 import voluptuous as vol
@@ -17,7 +16,7 @@ from .const import DOMAIN, LOGGER
 
 
 class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config flow for Blueprint."""
+    """Config flow for OneBusAway."""
 
     VERSION = 1
 
@@ -86,6 +85,45 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=_errors,
         )
 
+    async def async_step_routes(self, user_input=None):
+        """Handle route selection."""
+        if not self.stop_data:
+            return self.async_abort(reason="missing_stop_data")
+
+        # Extract available routes
+        routes = self.stop_data["data"]["references"]["routes"]
+        route_options = {route["id"]: f"{route['shortName']} ({route['id']})" for route in routes}
+
+        if user_input is not None:
+            # Store selected routes
+            selected_routes = [
+                {"id": route_id, "shortName": route_options[route_id]}
+                for route_id in user_input["selected_routes"]
+            ]
+            self.user_input["selected_routes"] = selected_routes
+
+            # Create the final entry
+            return self.async_create_entry(
+                title=self.stop_data["data"]["entry"]["name"],
+                data=self.user_input,
+            )
+
+        return self.async_show_form(
+            step_id="routes",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("selected_routes", default=[]): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": route_id, "label": route_options[route_id]}
+                                for route_id in route_options
+                            ],
+                            multiple=True,
+                        )
+                    )
+                }
+            ),
+        )
 
     async def _test_url(self, url: str, key: str, stop: str):
         """Validate credentials."""
