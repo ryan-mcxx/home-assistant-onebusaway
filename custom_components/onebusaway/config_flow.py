@@ -124,14 +124,19 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
         )
-
+    
     async def _test_url(self, url: str, key: str, stop: str):
-        """Validate credentials."""
+        """Fetch and store stop data."""
         client = OneBusAwayApiClient(
             url=url,
             key=key,
             stop=stop,
             session=async_create_clientsession(self.hass),
         )
-        json = await client.async_get_data()
+        json = await client.async_get_stop_data()  # Call a new method to fetch stop data
+    
+        # Store the full stop data for later use in async_step_routes
+        self.stop_data = json  
+    
         return json["data"]["entry"]["arrivalsAndDepartures"][0]
+
