@@ -18,6 +18,8 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass, entry, async_add_devices):
     """Set up the sensor platform with multiple stops."""
     stops = entry.data.get("stops", [entry.data[CONF_ID]])  # Support multiple stops
+    selected_routes = entry.data.get("selected_routes", [])
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {"selected_routes": selected_routes}
     session = async_get_clientsession(hass)
 
     coordinators = []
@@ -103,6 +105,7 @@ class OneBusAwaySensorCoordinator:
         if self.data is None:
             return []
 
+        selected_routes = self.hass.data.get(DOMAIN, {}).get(self.stop_id, {}).get("selected_routes", [])
         current = after * 1000
 
         def extract_departure(d) -> dict | None:
@@ -111,6 +114,11 @@ class OneBusAwaySensorCoordinator:
             scheduled = d.get("scheduledDepartureTime")
             trip_headsign = d.get("tripHeadsign", "Unknown")
             route_name = d.get("routeShortName", "Unknown Route")
+            route_id = d.get("routeId")
+
+            # Filter out routes not in the selected list
+            if selected_routes and route_id not in selected_routes:
+                return None
 
             if predicted and predicted > current:
                 return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign, "routeShortName": route_name}
@@ -119,11 +127,11 @@ class OneBusAwaySensorCoordinator:
             return None
 
         # Collect valid departures
-        departures = []
-        for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", []):
-            dep = extract_departure(d)
-            if dep is not None:
-                departures.append(dep)
+        departures = [
+            extract_departure(d)
+            for d in self.data.get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
+            if extract_departure(d) is not None
+        ]
 
         # Sort by time
         return sorted(departures, key=lambda x: x["time"])
