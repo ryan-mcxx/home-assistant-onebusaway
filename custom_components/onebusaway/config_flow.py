@@ -39,7 +39,7 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     
         if user_input is not None:
             try:
-                arrival = await self._test_url(
+                stop_data = await self._test_url(
                     url=user_input[CONF_URL],
                     key=user_input[CONF_TOKEN] if user_input.get(CONF_TOKEN) else existing_token,
                     stop=user_input[CONF_ID],
@@ -54,14 +54,16 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 LOGGER.exception(exception)
                 _errors["base"] = "unknown"
             else:
-                return self.async_create_entry(
-                    title=arrival["stopId"],
-                    data={
-                        CONF_URL: user_input[CONF_URL],
-                        CONF_ID: user_input[CONF_ID],
-                        CONF_TOKEN: existing_token or user_input[CONF_TOKEN],
-                    },
-                )
+                # Store stop data for route selection
+                self.stop_data = stop_data  
+                self.user_input = {
+                    CONF_URL: user_input[CONF_URL],
+                    CONF_ID: user_input[CONF_ID],
+                    CONF_TOKEN: existing_token or user_input[CONF_TOKEN],
+                }
+                
+                # Proceed to the route selection step
+                return await self.async_step_routes()
     
         return self.async_show_form(
             step_id="user",
@@ -124,19 +126,14 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
         )
-    
+
     async def _test_url(self, url: str, key: str, stop: str):
-        """Fetch and store stop data."""
+        """Validate credentials."""
         client = OneBusAwayApiClient(
             url=url,
             key=key,
             stop=stop,
             session=async_create_clientsession(self.hass),
         )
-        json = await client.async_get_stop_data()  # Call a new method to fetch stop data
-    
-        # Store the full stop data for later use in async_step_routes
-        self.stop_data = json  
-    
-        return json["data"]["entry"]["arrivalsAndDepartures"][0]
-
+        json = await client.async_get_data()
+        return json
