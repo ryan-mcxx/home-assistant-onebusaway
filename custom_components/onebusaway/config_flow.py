@@ -93,8 +93,8 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="missing_stop_data")
 
         # Extract available routes
-        routes = self.stop_data["data"]["references"]["routes"]
-        route_options = {route["id"]: f"{route['shortName']} ({route['id']})" for route in routes}
+        routes = self.stop_data["data"].get("references", {}).get("routes", [])
+        route_options = {route["id"]: f"{route.get('shortName', 'Unknown')} ({route['id']})" for route in routes}
 
         if user_input is not None:
             # Store selected routes
@@ -104,9 +104,12 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             ]
             self.user_input["selected_routes"] = selected_routes
 
+            # Use a fallback title if 'name' is missing
+            stop_name = self.stop_data["data"].get("entry", {}).get("name", "Unknown Stop")
+
             # Create the final entry
             return self.async_create_entry(
-                title=self.stop_data["data"]["entry"]["name"],
+                title=stop_name,
                 data=self.user_input,
             )
 
