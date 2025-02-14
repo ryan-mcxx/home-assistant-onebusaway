@@ -138,5 +138,5 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             stop=stop,
             session=async_create_clientsession(self.hass),
         )
-        json = await client.async_get_data()
+        json = await client.async_get_stop_data()  # Fetch full stop data
         return json
