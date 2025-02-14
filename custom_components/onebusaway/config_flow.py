@@ -27,11 +27,22 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> config_entries.FlowResult:
         """Handle a flow initialized by the user."""
         _errors = {}
+    
+        # Retrieve existing entries
+        existing_entries = self._async_current_entries()
+        existing_token = None
+    
+        # Look for an existing CONF_TOKEN
+        for entry in existing_entries:
+            if CONF_TOKEN in entry.data:
+                existing_token = entry.data[CONF_TOKEN]
+                break  # Use the first found token
+    
         if user_input is not None:
             try:
                 arrival = await self._test_url(
                     url=user_input[CONF_URL],
-                    key=user_input[CONF_TOKEN],
+                    key=user_input[CONF_TOKEN] if user_input.get(CONF_TOKEN) else existing_token,
                     stop=user_input[CONF_ID],
                 )
             except OneBusAwayApiClientAuthenticationError as exception:
@@ -46,9 +57,13 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(
                     title=arrival["stopId"],
-                    data=user_input,
+                    data={
+                        CONF_URL: user_input[CONF_URL],
+                        CONF_ID: user_input[CONF_ID],
+                        CONF_TOKEN: existing_token or user_input[CONF_TOKEN],
+                    },
                 )
-
+    
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -59,21 +74,18 @@ class OneBusAwayFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         selector.TextSelectorConfig(type=selector.TextSelectorType.URL),
                     ),
                     vol.Optional(
-                        CONF_TOKEN, default="93300649-efcb-4f86-963e-827e9616ef94"
+                        CONF_TOKEN, default=existing_token 
                     ): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT
-                        ),
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT),
                     ),
                     vol.Required(CONF_ID, default="40_55778"): selector.TextSelector(
-                        selector.TextSelectorConfig(
-                            type=selector.TextSelectorType.TEXT
-                        ),
+                        selector.TextSelectorConfig(type=selector.TextSelectorType.TEXT),
                     ),
                 }
             ),
             errors=_errors,
         )
+
 
     async def _test_url(self, url: str, key: str, stop: str):
         """Validate credentials."""
