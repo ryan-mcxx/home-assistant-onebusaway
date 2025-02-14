@@ -33,7 +33,10 @@ async def async_setup_entry(hass, entry, async_add_devices):
         coordinator = OneBusAwaySensorCoordinator(hass, client, async_add_devices, stop_id, entry.entry_id)
         await coordinator.async_refresh()
         coordinators.append(coordinator)
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinators
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        "selected_routes": selected_routes,
+        "coordinators": coordinators
+    }
 
 
 class OneBusAwaySensorCoordinator:
