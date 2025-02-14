@@ -30,7 +30,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
             stop=stop_id,
             session=session,
         )
-        coordinator = OneBusAwaySensorCoordinator(hass, client, async_add_devices, stop_id)
+        coordinator = OneBusAwaySensorCoordinator(hass, client, async_add_devices, stop_id, entry.entry_id)
         await coordinator.async_refresh()
         coordinators.append(coordinator)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinators
@@ -39,7 +39,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
 class OneBusAwaySensorCoordinator:
     """Manages and updates OneBusAway sensors."""
 
-    def __init__(self, hass, client, async_add_entities, stop_id):
+    def __init__(self, hass, client, async_add_entities, stop_id, entry_id):
         """Initialize the coordinator."""
         self.hass = hass
         self.stop_id = stop_id
@@ -47,6 +47,7 @@ class OneBusAwaySensorCoordinator:
         self.sensors = []
         self.async_add_entities = async_add_entities
         self._unsub = None
+        self.entry_id = entry_id
 
     async def async_refresh(self):
         """Retrieve the latest state and update sensors."""
@@ -105,7 +106,7 @@ class OneBusAwaySensorCoordinator:
         if self.data is None:
             return []
 
-        selected_routes = self.hass.data.get(DOMAIN, {}).get(self.stop_id, {}).get("selected_routes", [])
+        selected_routes = self.hass.data.get(DOMAIN, {}).get(self.entry_id, {}).get("selected_routes", [])
         current = after * 1000
 
         def extract_departure(d) -> dict | None:
