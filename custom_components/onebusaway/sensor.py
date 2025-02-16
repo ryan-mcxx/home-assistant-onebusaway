@@ -71,7 +71,10 @@ class OneBusAwaySensorCoordinator:
         new_arrival_times = self.compute_arrivals(time())
     
         # Update or create situation count sensor
-        situation_data = self.data.get("data", {}).get("references", {}).get("situations", [])
+        situation_data = []
+        if self.data and isinstance(self.data, dict):
+            situation_data = self.data.get("data", {}).get("references", {}).get("situations", [])
+
         if not any(isinstance(sensor, OneBusAwaySituationSensor) for sensor in self.sensors):
             situation_sensor = OneBusAwaySituationSensor(
                 stop_id=self.stop_id,
