@@ -175,11 +175,6 @@ class OneBusAwaySensorCoordinator:
             self._unsub()
         self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
 
-        # Update the situation sensor with the new update time
-        for sensor in self.sensors:
-            if isinstance(sensor, OneBusAwaySituationSensor):
-                sensor.update_next_refresh(self.next_update_time)
-
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
 
