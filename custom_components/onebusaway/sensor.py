@@ -162,11 +162,17 @@ class OneBusAwaySensorCoordinator:
         next_interval_seconds = 60 if self.compute_arrivals(time()) and self.next_arrival_within_10_minutes() else 300
         _LOGGER.debug("Next update for stop %s in %d seconds", self.stop_id, next_interval_seconds)
 
+        self.next_update_time = datetime.now(timezone.utc) + timedelta(seconds=next_interval_seconds)
+        
         next_interval = timedelta(seconds=next_interval_seconds)
         if self._unsub:
             self._unsub()
         self._unsub = async_track_time_interval(self.hass, update_interval, next_interval)
 
+        # Update the situation sensor with the new update time
+        for sensor in self.sensors:
+            if isinstance(sensor, OneBusAwaySituationSensor):
+                sensor.update_next_refresh(self.next_update_time)
 
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
@@ -247,6 +253,7 @@ class OneBusAwaySituationSensor(SensorEntity):
         )
         self._attr_attribution = ATTRIBUTION
         self.situations = situations
+        self.next_refresh_time = None
         self.entity_id = f"sensor.onebusaway_{stop_id}_situations"
 
     def update_situations(self, situations: list[dict]):
@@ -254,6 +261,11 @@ class OneBusAwaySituationSensor(SensorEntity):
         self.situations = situations
         self.async_write_ha_state()
 
+    def update_next_refresh(self, next_refresh_time: datetime):
+        """Update the next refresh timestamp."""
+        self.next_refresh_time = next_refresh_time
+        self.async_write_ha_state()
+    
     @property
     def native_value(self) -> int:
         """Return the count of situations."""
@@ -278,8 +290,11 @@ class OneBusAwaySituationSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional metadata for situations."""
         attributes = {}
+
+        if self.next_refresh_time:
+            attributes["next_refresh"] = self.next_refresh_time.isoformat()
+        
         markdown_lines = []
-    
         for index, situation in enumerate(self.situations):
             severity = situation.get("severity", "Unknown")
             reason = self._sanitize_text(situation.get("reason", "Not specified"))
