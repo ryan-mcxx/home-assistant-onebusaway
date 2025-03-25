@@ -51,7 +51,10 @@ class OneBusAwaySensorCoordinator:
         self.async_add_entities = async_add_entities
         self._unsub = None
         self.entry_id = entry_id
-
+        self.refresh_sensor = OneBusAwayRefreshSensor(stop_id)
+        self.sensors.append(self.refresh_sensor)
+        self.async_add_entities([self.refresh_sensor])
+        
     async def async_refresh(self):
         """Retrieve the latest state and update sensors."""
         _LOGGER.debug("Refreshing data for stop %s", self.stop_id)
@@ -160,9 +163,12 @@ class OneBusAwaySensorCoordinator:
             await self.schedule_updates()
 
         next_interval_seconds = 60 if self.compute_arrivals(time()) and self.next_arrival_within_10_minutes() else 300
-        _LOGGER.debug("Next update for stop %s in %d seconds", self.stop_id, next_interval_seconds)
+        next_update_time = datetime.now(timezone.utc) + timedelta(seconds=next_interval_seconds)
 
-        self.next_update_time = datetime.now(timezone.utc) + timedelta(seconds=next_interval_seconds)
+        # Update the refresh sensor
+        self.refresh_sensor.update_refresh_time(next_refresh_time)
+
+        _LOGGER.debug("Next update for stop %s in %d seconds", self.stop_id, next_interval_seconds)
         
         next_interval = timedelta(seconds=next_interval_seconds)
         if self._unsub:
@@ -253,17 +259,11 @@ class OneBusAwaySituationSensor(SensorEntity):
         )
         self._attr_attribution = ATTRIBUTION
         self.situations = situations
-        self.next_refresh_time = None
         self.entity_id = f"sensor.onebusaway_{stop_id}_situations"
 
     def update_situations(self, situations: list[dict]):
         """Update the situation details and refresh state."""
         self.situations = situations
-        self.async_write_ha_state()
-
-    def update_next_refresh(self, next_refresh_time: datetime):
-        """Update the next refresh timestamp."""
-        self.next_refresh_time = next_refresh_time
         self.async_write_ha_state()
     
     @property
@@ -290,9 +290,6 @@ class OneBusAwaySituationSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional metadata for situations."""
         attributes = {}
-
-        if self.next_refresh_time:
-            attributes["next_refresh"] = self.next_refresh_time.isoformat()
         
         markdown_lines = []
         for index, situation in enumerate(self.situations):
@@ -312,3 +309,30 @@ class OneBusAwaySituationSensor(SensorEntity):
     
         attributes["markdown_content"] = "\n".join(markdown_lines)
         return attributes
+        
+class OneBusAwayRefreshSensor(SensorEntity):
+    """Sensor to display the next refresh timestamp."""
+
+    def __init__(self, stop_id) -> None:
+        """Initialize the refresh sensor."""
+        self.stop_id = stop_id
+        self._attr_unique_id = f"{stop_id}_next_refresh"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, stop_id)},
+            name=f"Stop {stop_id}",
+            model=VERSION,
+            manufacturer=NAME,
+        )
+        self._attr_device_class = SensorDeviceClass.TIMESTAMP  # Enables relative time in UI
+        self.entity_id = f"sensor.onebusaway_{stop_id}_next_refresh"
+        self._next_refresh = None
+
+    def update_refresh_time(self, next_refresh_time: datetime):
+        """Update the refresh timestamp."""
+        self._next_refresh = next_refresh_time
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the next refresh timestamp."""
+        return self._next_refresh
