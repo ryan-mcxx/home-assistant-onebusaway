@@ -166,7 +166,7 @@ class OneBusAwaySensorCoordinator:
         next_update_time = datetime.now(timezone.utc) + timedelta(seconds=next_interval_seconds)
 
         # Update the refresh sensor
-        self.refresh_sensor.update_refresh_time(next_refresh_time)
+        self.refresh_sensor.update_refresh_time(next_update_time)
 
         _LOGGER.debug("Next update for stop %s in %d seconds", self.stop_id, next_interval_seconds)
         
