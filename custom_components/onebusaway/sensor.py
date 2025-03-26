@@ -53,6 +53,7 @@ class OneBusAwaySensorCoordinator:
         self.entry_id = entry_id
         self.refresh_sensor = None  # Will initialize after fetching stop name
         self.sensors.append(self.refresh_sensor)
+        self.refresh_sensor = OneBusAwayRefreshSensor(stop_id, stop_name)
 
     async def async_refresh(self):
         """Retrieve the latest state and update sensors."""
