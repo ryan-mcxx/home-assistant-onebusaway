@@ -331,3 +331,13 @@ class OneBusAwayRefreshSensor(SensorEntity):
     def native_value(self) -> datetime | None:
         """Return the next refresh timestamp."""
         return self._next_refresh
+
+    @property
+    def name(self) -> str:
+        """Friendly name for the sensor."""
+        return f"Next refresh for Stop {self.stop_id}"
+
+    @property
+    def icon(self) -> str:
+        """Icon for the sensor."""
+        return "mdi:timer-refresh"
