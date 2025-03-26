@@ -51,7 +51,7 @@ class OneBusAwaySensorCoordinator:
         self.async_add_entities = async_add_entities
         self._unsub = None
         self.entry_id = entry_id
-        self.refresh_sensor = OneBusAwayRefreshSensor(stop_id)
+        self.refresh_sensor = OneBusAwayRefreshSensor(stop_id, stop_name)
         self.sensors.append(self.refresh_sensor)
         self.async_add_entities([self.refresh_sensor])
         
