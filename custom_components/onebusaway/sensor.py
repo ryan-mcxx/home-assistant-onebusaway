@@ -78,9 +78,12 @@ class OneBusAwaySensorCoordinator:
         if self.data and isinstance(self.data, dict):
             situation_data = self.data.get("data", {}).get("references", {}).get("situations", [])
 
+        stop_name = self.data.get("data", {}).get("entry", {}).get("name", "Unknown Stop")
+        
         if not any(isinstance(sensor, OneBusAwaySituationSensor) for sensor in self.sensors):
             situation_sensor = OneBusAwaySituationSensor(
                 stop_id=self.stop_id,
+                stop_name=stop_name,
                 situations=situation_data,
             )
             self.sensors.append(situation_sensor)
@@ -100,6 +103,7 @@ class OneBusAwaySensorCoordinator:
             else:
                 new_sensor = OneBusAwayArrivalSensor(
                     stop_id=self.stop_id,
+                    stop_name=stop_name,
                     arrival_info=arrival_info,
                     index=index,
                 )
@@ -178,14 +182,15 @@ class OneBusAwaySensorCoordinator:
 class OneBusAwayArrivalSensor(SensorEntity):
     """Sensor for an individual bus arrival."""
 
-    def __init__(self, stop_id, arrival_info, index) -> None:
+    def __init__(self, stop_id, stop_name, arrival_info, index) -> None:
         """Initialize the sensor."""
         self.stop_id = stop_id
+        self.stop_name = stop_name
         self.index = index
         self._attr_unique_id = f"{stop_id}_arrival_{index}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, stop_id)},
-            name=f"Stop {stop_id}",
+            name=f"{stop_name} ({stop_id})",
             model=VERSION,
             manufacturer=NAME,
         )
@@ -242,13 +247,14 @@ class OneBusAwayArrivalSensor(SensorEntity):
 class OneBusAwaySituationSensor(SensorEntity):
     """Sensor to display the count of situations and their details."""
 
-    def __init__(self, stop_id, situations) -> None:
+    def __init__(self, stop_id, stop_name, situations) -> None:
         """Initialize the situation sensor."""
         self.stop_id = stop_id
+        self.stop_name - stop_name
         self._attr_unique_id = f"{stop_id}_situation_count"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, stop_id)},
-            name=f"Stop {stop_id}",
+            name=f"{stop_name} ({stop_id})",
             model=VERSION,
             manufacturer=NAME,
         )
@@ -308,13 +314,13 @@ class OneBusAwaySituationSensor(SensorEntity):
 class OneBusAwayRefreshSensor(SensorEntity):
     """Sensor to display the next refresh timestamp."""
 
-    def __init__(self, stop_id) -> None:
+    def __init__(self, stop_id, stop_name) -> None:
         """Initialize the refresh sensor."""
         self.stop_id = stop_id
         self._attr_unique_id = f"{stop_id}_next_refresh"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, stop_id)},
-            name=f"Stop {stop_id}",
+            name=f"{stop_name} ({stop_id})",
             model=VERSION,
             manufacturer=NAME,
         )
@@ -340,4 +346,4 @@ class OneBusAwayRefreshSensor(SensorEntity):
     @property
     def icon(self) -> str:
         """Icon for the sensor."""
-        return "mdi:timer-refresh"
+        return "mdi:refresh-auto"
