@@ -50,6 +50,8 @@ filter:
       attributes:
         route_name: '[selected_route_name]'
   exclude:
+    - entity_id: sensor.onebusaway_[stop_id_number]_next_refresh
+    - entity_id: sensor.onebusaway_[stop_id_number]_situations
     - state: unknown
     - state: unavailable
 sort:
