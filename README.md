@@ -25,18 +25,56 @@ recorder:
     entity_globs:
       - sensor.onebusaway_*
 ```
+
+Use a heading card to display stop name and next update
+
+```yaml
+type: heading
+heading: [Add Stop Name]
+heading_style: title
+badges:
+  - type: entity
+    show_state: true
+    show_icon: true
+    entity: sensor.onebusaway_[stop_id_number]_next_refresh
+```
+
 Use markdown card to display ongoing situations.
 
 ```yaml
 type: markdown
 content: |
-  ## Situations
   {{ states.sensor.onebusaway_[stop_id_number]_situations.attributes.markdown_content }}
 visibility:
   - condition: numeric_state
     entity: sensor.onebusaway_[stop_id_number]_situations
     above: 0
+text_only: true
 ```
+
+Use a tile card for no arrival state
+
+```yaml
+type: tile
+entity: sensor.onebusaway_[stop_id_number]_arrival_0
+features_position: bottom
+vertical: false
+hide_state: true
+name: No Upcoming Arrivals
+grid_options:
+  columns: full
+  rows: 1
+visibility:
+  - condition: or
+    conditions:
+      - condition: state
+        entity: sensor.onebusaway_[stop_id_number]_arrival_0
+        state: unavailable
+      - condition: state
+        entity: sensor.onebusaway_[stop_id_number]_arrival_0
+        state: unknown
+```
+
 Use custom [auto-entities](https://github.com/thomasloven/lovelace-auto-entities) card to create a view of all incoming arrivals for a specific stop(s).
 
 ```yaml
