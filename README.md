@@ -14,7 +14,7 @@ Use HACS and add as a custom repository. Once the custom integration is installe
 | Token | request an API key from [Sound Transit](https://www.soundtransit.org/help-contacts/business-information/open-transit-data-otd) |
 | ID | Use [Puget Sound OneBusAway](https://pugetsound.onebusaway.org/) map to zoom in and identify the stop you are interested in, select it, and view schedule. The id will be appended at the end of the url. |
 
-There must be routes scheduled to arrive during setup, otherwise it will not complete.
+Select the routes you'd like to monitor, or continue to monitor all routes from that stop.
 
 ## Recommended Configurations
 Add an exclusion filter in your recorder for the created sensors, to maintain database size.
