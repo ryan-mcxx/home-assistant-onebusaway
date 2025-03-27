@@ -269,7 +269,7 @@ class OneBusAwaySituationSensor(SensorEntity):
     @property
     def name(self) -> str:
         """Friendly name for the sensor."""
-        return f"{self.stop_id} Situations"
+        return f"Stop {self.stop_id} Situations"
 
     @property
     def icon(self) -> str:
@@ -335,7 +335,7 @@ class OneBusAwayRefreshSensor(SensorEntity):
     @property
     def name(self) -> str:
         """Friendly name for the sensor."""
-        return f"{self.stop_id} Next Refresh"
+        return f"Stop {self.stop_id} Next Refresh"
 
     @property
     def icon(self) -> str:
