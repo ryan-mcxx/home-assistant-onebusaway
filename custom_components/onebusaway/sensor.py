@@ -54,7 +54,7 @@ class OneBusAwaySensorCoordinator:
         self.refresh_sensor = OneBusAwayRefreshSensor(stop_id)
         self.sensors.append(self.refresh_sensor)
         self.async_add_entities([self.refresh_sensor])
-        self.backoff_index = len(polling_tiers) - 1
+        self.backoff_index = 0
         self.backoff_repeats = 0
         
     async def async_refresh(self):
