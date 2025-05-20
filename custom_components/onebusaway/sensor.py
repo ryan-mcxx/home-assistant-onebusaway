@@ -166,7 +166,7 @@ class OneBusAwaySensorCoordinator:
         seconds_until_arrival = arrivals[0]["time"] - time() if arrivals else float("inf")
     
         # Tiers and limits
-        polling_tiers = [30, 60, 120, 300]
+        polling_tiers = [30, 60, 90, 180, 300]
         max_interval = 300
     
         # Track last used interval (default to max if unset)
@@ -178,10 +178,10 @@ class OneBusAwaySensorCoordinator:
             desired_interval = 30
         elif seconds_until_arrival <= 6 * 60:
             desired_interval = 60
-        elif seconds_until_arrival <= 12 * 60:
-            desired_interval = 120
-        elif seconds_until_arrival <= 20 * 60:
-            desired_interval = 300
+        elif seconds_until_arrival <= 10 * 60:
+            desired_interval = 90
+        elif seconds_until_arrival <= 15 * 60:
+            desired_interval = 180
         else:
             desired_interval = 300  # No buses soon
     
