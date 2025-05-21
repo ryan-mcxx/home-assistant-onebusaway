@@ -158,7 +158,7 @@ class OneBusAwaySensorCoordinator:
         return False
 
     async def schedule_updates(self):
-        """Schedule sensor updates with intelligent stepwise backoff logic."""
+        """Schedule sensor updates with controlled stepwise backoff and repeats."""
         async def update_interval(_):
             _LOGGER.debug("Updating stop %s", self.stop_id)
             await self.async_update()
@@ -167,59 +167,59 @@ class OneBusAwaySensorCoordinator:
         arrivals = self.compute_arrivals(time())
         seconds_until_arrival = arrivals[0]["time"] - time() if arrivals else float("inf")
     
-        # Define polling tiers
         polling_tiers = [30, 60, 90, 180, 300]
-        max_interval = polling_tiers[-1]
+        repeat_limits = [2, 1, 0, 0, 0]  # Number of repeats for each tier
+        max_interval = 300
     
-        # Determine desired interval based on time until arrival
-        if seconds_until_arrival <= 3 * 60:
-            desired_interval = 30
-        elif seconds_until_arrival <= 6 * 60:
-            desired_interval = 60
-        elif seconds_until_arrival <= 10 * 60:
-            desired_interval = 90
-        elif seconds_until_arrival <= 15 * 60:
-            desired_interval = 180
-        else:
-            desired_interval = 300
-    
-        # Get or initialize current tier index and repeat counter
         current_interval = getattr(self, "_current_interval", max_interval)
         tier_index = polling_tiers.index(current_interval) if current_interval in polling_tiers else len(polling_tiers) - 1
-        desired_index = polling_tiers.index(desired_interval)
+        repeat_count = getattr(self, "_repeat_count", 0)
     
-        self._repeat_count = getattr(self, "_repeat_count", 0)
+        # Determine target tier index
+        if seconds_until_arrival <= 3 * 60:
+            target_index = 0
+        elif seconds_until_arrival <= 6 * 60:
+            target_index = 1
+        elif seconds_until_arrival <= 10 * 60:
+            target_index = 2
+        elif seconds_until_arrival <= 15 * 60:
+            target_index = 3
+        else:
+            target_index = 4
     
-        if desired_index < tier_index:
-            # Bus got closer — jump immediately to tighter polling
-            tier_index = desired_index
-            self._repeat_count = 0
-        elif desired_index > tier_index:
-            # Back off gradually, repeating once at current level
-            if self._repeat_count == 0:
-                self._repeat_count += 1  # repeat once
+        # Step logic with repeats only when stepping up
+        if target_index > tier_index:
+            if repeat_count < repeat_limits[tier_index]:
+                next_interval_seconds = current_interval
+                self._repeat_count = repeat_count + 1
             else:
                 tier_index = min(tier_index + 1, len(polling_tiers) - 1)
+                next_interval_seconds = polling_tiers[tier_index]
                 self._repeat_count = 0
-        # else: stay at current level
+        elif target_index < tier_index:
+            tier_index = max(tier_index - 1, 0)
+            next_interval_seconds = polling_tiers[tier_index]
+            self._repeat_count = 0
+        else:
+            next_interval_seconds = current_interval
+            self._repeat_count = repeat_count
     
-        next_interval_seconds = polling_tiers[tier_index]
         self._current_interval = next_interval_seconds
-    
-        # Schedule next update
         next_update_time = datetime.now(timezone.utc) + timedelta(seconds=next_interval_seconds)
         self.refresh_sensor.update_refresh_time(next_update_time)
     
         _LOGGER.debug(
-            "Next update for stop %s in %d seconds (next arrival in %.1f min)",
+            "Next update for stop %s in %d seconds (next arrival in %.1f min, repeat count %d)",
             self.stop_id,
             next_interval_seconds,
             seconds_until_arrival / 60,
+            self._repeat_count
         )
     
         if self._unsub:
             self._unsub()
         self._unsub = async_track_time_interval(self.hass, update_interval, timedelta(seconds=next_interval_seconds))
+
 
 
 class OneBusAwayArrivalSensor(SensorEntity):
