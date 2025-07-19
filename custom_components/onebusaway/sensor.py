@@ -119,24 +119,35 @@ class OneBusAwaySensorCoordinator:
 
         selected_routes = self.hass.data.get(DOMAIN, {}).get(self.entry_id, {}).get("selected_routes", [])
         current = after * 1000
-
+        
         def extract_departure(d) -> dict | None:
-            """Extract time, type, route name, and trip headsign."""
+            """Extract time, type, route name, trip headsign, and compute schedule deviation."""
             predicted = d.get("predictedArrivalTime")
-            scheduled = d.get("scheduledDepartureTime")
+            scheduled = d.get("scheduledArrivalTime")
             trip_headsign = d.get("tripHeadsign", "Unknown")
             route_name = d.get("routeShortName", "Unknown Route")
             route_id = d.get("routeId")
-
-            # Filter out routes not in the selected list
+        
+            # Filter out routes not in selected list
             if selected_routes and route_id not in selected_routes:
                 return None
-
-            if predicted and predicted > current:
-                return {"time": predicted / 1000, "type": "Predicted", "headsign": trip_headsign, "routeShortName": route_name}
-            elif scheduled and scheduled > current:
-                return {"time": scheduled / 1000, "type": "Scheduled", "headsign": trip_headsign, "routeShortName": route_name}
+        
+            # Only include if either time is in the future
+            if (predicted and predicted > current) or (scheduled and scheduled > current):
+                primary_time = (predicted or scheduled) / 1000
+                deviation = (
+                    (predicted - scheduled) // 1000
+                    if predicted and scheduled else None
+                )
+                return {
+                    "time": primary_time,
+                    "type": "Predicted" if predicted and predicted > current else "Scheduled",
+                    "headsign": trip_headsign,
+                    "routeShortName": route_name,
+                    "schedule_deviation": deviation,
+                }
             return None
+
 
         # Collect valid departures
         departures = [
@@ -261,13 +272,28 @@ class OneBusAwayArrivalSensor(SensorEntity):
     def name(self) -> str:
         """Friendly name for the sensor."""
         if self.arrival_info:
-            headsign = self.arrival_info["headsign"]
-            if self.stop_id.startswith("95_"):
-                return f"to {headsign}"
+            route = self.arrival_info.get("routeShortName", "")
+            headsign = self.arrival_info.get("headsign", "Unknown")
+            deviation = self.arrival_info.get("schedule_deviation")
+    
+            # Format deviation
+            if deviation is None:
+                deviation_str = ""
+            elif deviation == 0:
+                deviation_str = "(on time)"
+            elif deviation > 0:
+                deviation_str = f"({deviation // 60} min late)"
             else:
-                route = self.arrival_info["routeShortName"]
-                return f"{route} to {headsign}"
+                deviation_str = f"({abs(deviation) // 60} min early)"
+    
+            # Skip route if stop_id starts with "95_"
+            if self.stop_id.startswith("95_"):
+                return f"To {headsign} {deviation_str}".strip()
+            else:
+                return f"{route} to {headsign} {deviation_str}".strip()
+    
         return f"OneBusAway {self.stop_id} Arrival {self.index}"
+
 
 
     @property
@@ -275,10 +301,24 @@ class OneBusAwayArrivalSensor(SensorEntity):
         """Return additional metadata for this bus arrival."""
         if not self.arrival_info:
             return {}
+    
+        deviation = self.arrival_info.get("schedule_deviation")
+        if deviation is None:
+            deviation_str = "Unknown"
+        elif deviation == 0:
+            deviation_str = "On time"
+        elif deviation > 0:
+            deviation_str = f"{deviation // 60} min late"
+        else:
+            deviation_str = f"{abs(deviation) // 60} min early"
+    
         return {
-            "arrival_time": self.arrival_info["type"],
-            "route_name": self.arrival_info["routeShortName"],
+            "arrival_type": self.arrival_info.get("type"),  # "Predicted" or "Scheduled"
+            "route_name": self.arrival_info.get("routeShortName"),
+            "headsign": self.arrival_info.get("headsign"),
+            "schedule_deviation": deviation_str,
         }
+
         
     @property
     def icon(self) -> str:
