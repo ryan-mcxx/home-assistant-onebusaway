@@ -304,24 +304,25 @@ class OneBusAwayArrivalSensor(SensorEntity):
         deviation = self.arrival_info.get("schedule_deviation")
         if deviation is None:
             deviation_str = "Unknown"
-            deviation_seconds = None
+            deviation_minutes = None
         elif deviation == 0:
             deviation_str = "On time"
-            deviation_seconds = 0
+            deviation_minutes = 0.0
         elif deviation > 0:
             deviation_str = f"{deviation // 60} min late"
-            deviation_seconds = deviation
+            deviation_minutes = round(deviation / 60, 1)
         else:
             deviation_str = f"{abs(deviation) // 60} min early"
-            deviation_seconds = deviation
+            deviation_minutes = round(deviation / 60, 1)  # negative value
     
         return {
             "arrival_type": self.arrival_info.get("type"),  # "Predicted" or "Scheduled"
             "route_name": self.arrival_info.get("routeShortName"),
             "headsign": self.arrival_info.get("headsign"),
             "schedule_deviation": deviation_str,
-            "schedule_deviation_seconds": deviation_seconds,  # raw numeric value (can be negative)
+            "schedule_deviation_minutes": deviation_minutes,  # decimal minutes, 1 decimal place
         }
+
 
 
         
