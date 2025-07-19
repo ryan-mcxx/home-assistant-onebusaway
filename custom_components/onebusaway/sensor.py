@@ -288,7 +288,7 @@ class OneBusAwayArrivalSensor(SensorEntity):
     
             # Skip route if stop_id starts with "95_"
             if self.stop_id.startswith("95_"):
-                return f"To {headsign} {deviation_str}".strip()
+                return f"to {headsign} {deviation_str}".strip()
             else:
                 return f"{route} to {headsign} {deviation_str}".strip()
     
