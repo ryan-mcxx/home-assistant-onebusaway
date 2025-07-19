@@ -261,10 +261,14 @@ class OneBusAwayArrivalSensor(SensorEntity):
     def name(self) -> str:
         """Friendly name for the sensor."""
         if self.arrival_info:
-            route = self.arrival_info["routeShortName"]
             headsign = self.arrival_info["headsign"]
-            return f"{route} to {headsign}"
+            if self.stop_id.startswith("95_"):
+                return f"to {headsign}"
+            else:
+                route = self.arrival_info["routeShortName"]
+                return f"{route} to {headsign}"
         return f"OneBusAway {self.stop_id} Arrival {self.index}"
+
 
     @property
     def extra_state_attributes(self):
