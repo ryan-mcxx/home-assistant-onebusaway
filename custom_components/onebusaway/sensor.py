@@ -382,21 +382,32 @@ class OneBusAwaySituationSensor(SensorEntity):
     def extra_state_attributes(self):
         """Return additional metadata for situations."""
         attributes = {}
-        
+    
         markdown_lines = []
         for index, situation in enumerate(self.situations):
-            description = self._sanitize_text(situation.get("description", {}).get("value", "")).replace("\n", " ").strip()
+            summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ").strip()
+            description = self._sanitize_text(situation.get("description", {}).get("value", "")).strip()
             url = situation.get("url", {}).get("value", "")
     
-            if description:
+            if summary:
                 if index > 0:
                     markdown_lines.append("\n---\n")
-                markdown_lines.append(
-                    f"[{description}]({url})" if url else description
-                )
+    
+                # Summary as link or plain text
+                markdown_lines.append(f"**[{summary}]({url})**" if url else f"**{summary}**")
+    
+                # Add description if available
+                if description:
+                    # Normalize and split description into lines
+                    lines = description.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+                    for line in lines:
+                        stripped = line.strip()
+                        if stripped:
+                            markdown_lines.append(stripped)
     
         attributes["markdown_content"] = "\n".join(markdown_lines)
         return attributes
+
         
 class OneBusAwayRefreshSensor(SensorEntity):
     """Sensor to display the next refresh timestamp."""
