@@ -385,18 +385,14 @@ class OneBusAwaySituationSensor(SensorEntity):
         
         markdown_lines = []
         for index, situation in enumerate(self.situations):
-            severity = situation.get("severity", "Unknown")
-            reason = self._sanitize_text(situation.get("reason", "Not specified"))
-            summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ").strip()
+            description = self._sanitize_text(situation.get("description", {}).get("value", "")).replace("\n", " ").strip()
             url = situation.get("url", {}).get("value", "")
     
-            if summary:
+            if description:
                 if index > 0:
                     markdown_lines.append("\n---\n")
                 markdown_lines.append(
-                    f"**Severity:** {severity}  \n"
-                    f"**Reason:** {reason}  \n"
-                    f"[{summary}]({url})" if url else summary
+                    f"[{description}]({url})" if url else description
                 )
     
         attributes["markdown_content"] = "\n".join(markdown_lines)
