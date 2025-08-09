@@ -385,36 +385,39 @@ class OneBusAwaySituationSensor(SensorEntity):
     
         markdown_lines = []
         for index, situation in enumerate(self.situations):
-            # Get raw description before sanitizing so we can count \r\n
+            summary = situation.get("summary", {}).get("value", "")
+            url = situation.get("url", {}).get("value", "")
+    
+            # Add separator if not the first situation
+            if index > 0:
+                markdown_lines.append("\n---\n")
+    
+            # Add summary as bold, linked if URL present
+            if summary:
+                if url:
+                    markdown_lines.append(f"**[{summary}]({url})**")
+                else:
+                    markdown_lines.append(f"**{summary}**")
+    
+            # Process description text
             raw_description = situation.get("description", {}).get("value", "") or ""
             newline_count = raw_description.count("\r\n")
     
-            # Sanitize text but preserve line breaks for splitting
+            # Sanitize description but preserve line breaks for splitting
             description = self._sanitize_text(raw_description).replace("\r\n", "\n").replace("\r", "\n")
-            lines = description.split("\n")
+            lines = [line.strip() for line in description.split("\n") if line.strip()]
     
-            for line in lines:
-                stripped = line.strip()
-                if not stripped:
-                    continue
-    
-                if stripped.startswith("Affected routes:"):
-                    route_text = stripped.split(":", 1)[1].strip()
-                    routes = route_text.split()
-    
-                    if newline_count < 10:
-                        # Bullet list format
-                        markdown_lines.append("**Affected routes:**")
-                        for route in routes:
-                            markdown_lines.append(f"- {route}")
-                    else:
-                        # Inline format
-                        markdown_lines.append(f"**Affected routes:** {', '.join(routes)}")
+            if lines:
+                if newline_count < 10:
+                    # Bullet list format
+                    for line in lines:
+                        markdown_lines.append(f"- {line}")
                 else:
-                    markdown_lines.append(stripped)
+                    # Inline comma-separated format
+                    markdown_lines.append(", ".join(lines))
     
         if markdown_lines:
-            attributes["description"] = "\n".join(markdown_lines)
+            attributes["markdown_content"] = "\n".join(markdown_lines)
     
         return attributes
         
