@@ -377,7 +377,7 @@ class OneBusAwaySituationSensor(SensorEntity):
         """Sanitize text by removing all extraneous escape characters, including line breaks."""
         # Replace multiple spaces from \r\n sequences and remove all newlines
         return re.sub(r"[\r\n]+", " ", text).strip()
-
+    
     @property
     def extra_state_attributes(self):
         """Return additional metadata for situations."""
@@ -385,29 +385,38 @@ class OneBusAwaySituationSensor(SensorEntity):
     
         markdown_lines = []
         for index, situation in enumerate(self.situations):
-            summary = self._sanitize_text(situation.get("summary", {}).get("value", "")).replace("\n", " ").strip()
-            description = self._sanitize_text(situation.get("description", {}).get("value", "")).strip()
-            url = situation.get("url", {}).get("value", "")
+            # Get raw description before sanitizing so we can count \r\n
+            raw_description = situation.get("description", {}).get("value", "") or ""
+            newline_count = raw_description.count("\r\n")
     
-            if summary:
-                if index > 0:
-                    markdown_lines.append("\n---\n")
+            # Sanitize text but preserve line breaks for splitting
+            description = self._sanitize_text(raw_description).replace("\r\n", "\n").replace("\r", "\n")
+            lines = description.split("\n")
     
-                # Summary as link or plain text
-                markdown_lines.append(f"**[{summary}]({url})**" if url else f"**{summary}**")
+            for line in lines:
+                stripped = line.strip()
+                if not stripped:
+                    continue
     
-                # Add description if available
-                if description:
-                    # Normalize and split description into lines
-                    lines = description.replace("\r\n", "\n").replace("\r", "\n").split("\n")
-                    for line in lines:
-                        stripped = line.strip()
-                        if stripped:
-                            markdown_lines.append(stripped)
+                if stripped.startswith("Affected routes:"):
+                    route_text = stripped.split(":", 1)[1].strip()
+                    routes = route_text.split()
     
-        attributes["markdown_content"] = "\n".join(markdown_lines)
+                    if newline_count < 10:
+                        # Bullet list format
+                        markdown_lines.append("**Affected routes:**")
+                        for route in routes:
+                            markdown_lines.append(f"- {route}")
+                    else:
+                        # Inline format
+                        markdown_lines.append(f"**Affected routes:** {', '.join(routes)}")
+                else:
+                    markdown_lines.append(stripped)
+    
+        if markdown_lines:
+            attributes["description"] = "\n".join(markdown_lines)
+    
         return attributes
-
         
 class OneBusAwayRefreshSensor(SensorEntity):
     """Sensor to display the next refresh timestamp."""
