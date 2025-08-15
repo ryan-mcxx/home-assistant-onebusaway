@@ -385,35 +385,33 @@ class OneBusAwaySituationSensor(SensorEntity):
     
         markdown_lines = []
         for index, situation in enumerate(self.situations):
-            summary = situation.get("summary", {}).get("value", "")
-            url = situation.get("url", {}).get("value", "")
+            summary = situation.get("summary", {}).get("value", "") or ""
+            url = situation.get("url", {}).get("value", "") or ""
     
-            # Add separator if not the first situation
+            # Separator between situations
             if index > 0:
                 markdown_lines.append("\n---\n")
     
-            # Add summary as bold, linked if URL present
+            # Summary (bold, linked if URL present)
             if summary:
                 markdown_lines.append(f"**[{summary}]({url})**" if url else f"**{summary}**")
     
-            # Process description text
+            # --- Description handling: split BEFORE sanitizing ---
             raw_description = situation.get("description", {}).get("value", "") or ""
-            newline_count = raw_description.count("\r\n")
+            normalized = raw_description.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
+            raw_lines = [ln for ln in normalized.split("\n") if ln.strip()]
     
-            # Normalize line breaks
-            description = self._sanitize_text(raw_description).replace("\r\n", "\n").replace("\r", "\n")
-            lines = [line.strip() for line in description.split("\n") if line.strip()]
+            if raw_lines:
+                # First line: plain text (no bullet)
+                header = self._sanitize_text(raw_lines[0]).strip()
+                if header:
+                    markdown_lines.append(header)
     
-            if lines:
-                if newline_count < 10:
-                    # First line as plain text
-                    markdown_lines.append(lines[0])
-                    # Remaining lines as bullets
-                    for line in lines[1:]:
-                        markdown_lines.append(f"- {line}")
-                else:
-                    # Inline comma-separated format
-                    markdown_lines.append(", ".join(lines))
+                # Remaining lines: bullets
+                for ln in raw_lines[1:]:
+                    safe_line = self._sanitize_text(ln).strip()
+                    if safe_line:
+                        markdown_lines.append(f"- {safe_line}")
     
         if markdown_lines:
             attributes["markdown_content"] = "\n".join(markdown_lines)
