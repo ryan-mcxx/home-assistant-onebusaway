@@ -405,7 +405,7 @@ class OneBusAwaySituationSensor(SensorEntity):
             raw_lines = [ln for ln in normalized.split("\n") if ln.strip()]
     
             if raw_lines:
-                if newline_count < 10:
+                if newline_count < 6:
                     # Bulleted list for shorter descriptions
                     for ln in raw_lines:
                         safe_line = self._sanitize_text(ln).strip()
