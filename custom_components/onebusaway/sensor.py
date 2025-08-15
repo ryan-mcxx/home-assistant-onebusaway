@@ -406,11 +406,28 @@ class OneBusAwaySituationSensor(SensorEntity):
     
             if raw_lines:
                 if newline_count < 6:
-                    # Bulleted list for shorter descriptions
+                    heading_mode = False
                     for ln in raw_lines:
                         safe_line = self._sanitize_text(ln).strip()
-                        if safe_line:
+                        if not safe_line:
+                            continue
+    
+                        if safe_line.endswith(":"):
+                            # Heading line
                             markdown_lines.append(f"- {safe_line}")
+                            heading_mode = True
+                        elif heading_mode:
+                            # Indented bullet under current heading
+                            markdown_lines.append(f"  - {safe_line}")
+                        else:
+                            # Normal bullet
+                            markdown_lines.append(f"- {safe_line}")
+    
+                        # Turn off heading mode if next line isn't indented content
+                        if not safe_line.endswith(":") and not heading_mode:
+                            heading_mode = False
+                        elif safe_line.endswith(":"):
+                            heading_mode = True
                 else:
                     # Inline comma-separated format for long descriptions
                     safe_lines = [self._sanitize_text(ln).strip() for ln in raw_lines if ln.strip()]
