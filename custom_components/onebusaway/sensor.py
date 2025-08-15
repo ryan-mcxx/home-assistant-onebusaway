@@ -396,22 +396,25 @@ class OneBusAwaySituationSensor(SensorEntity):
             if summary:
                 markdown_lines.append(f"**[{summary}]({url})**" if url else f"**{summary}**")
     
-            # --- Description handling: split BEFORE sanitizing ---
+            # Description handling
             raw_description = situation.get("description", {}).get("value", "") or ""
+            newline_count = raw_description.count("\r\n")
+    
+            # Normalize and split lines
             normalized = raw_description.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
             raw_lines = [ln for ln in normalized.split("\n") if ln.strip()]
     
             if raw_lines:
-                # First line: plain text (no bullet)
-                header = self._sanitize_text(raw_lines[0]).strip()
-                if header:
-                    markdown_lines.append(header)
-    
-                # Remaining lines: bullets
-                for ln in raw_lines[1:]:
-                    safe_line = self._sanitize_text(ln).strip()
-                    if safe_line:
-                        markdown_lines.append(f"- {safe_line}")
+                if newline_count < 10:
+                    # Bulleted list for shorter descriptions
+                    for ln in raw_lines:
+                        safe_line = self._sanitize_text(ln).strip()
+                        if safe_line:
+                            markdown_lines.append(f"- {safe_line}")
+                else:
+                    # Inline comma-separated format for long descriptions
+                    safe_lines = [self._sanitize_text(ln).strip() for ln in raw_lines if ln.strip()]
+                    markdown_lines.append(", ".join(safe_lines))
     
         if markdown_lines:
             attributes["markdown_content"] = "\n".join(markdown_lines)
