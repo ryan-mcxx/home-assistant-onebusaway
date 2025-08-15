@@ -394,23 +394,22 @@ class OneBusAwaySituationSensor(SensorEntity):
     
             # Add summary as bold, linked if URL present
             if summary:
-                if url:
-                    markdown_lines.append(f"**[{summary}]({url})**")
-                else:
-                    markdown_lines.append(f"**{summary}**")
+                markdown_lines.append(f"**[{summary}]({url})**" if url else f"**{summary}**")
     
             # Process description text
             raw_description = situation.get("description", {}).get("value", "") or ""
             newline_count = raw_description.count("\r\n")
     
-            # Sanitize description but preserve line breaks for splitting
+            # Normalize line breaks
             description = self._sanitize_text(raw_description).replace("\r\n", "\n").replace("\r", "\n")
             lines = [line.strip() for line in description.split("\n") if line.strip()]
     
             if lines:
                 if newline_count < 10:
-                    # Bullet list format
-                    for line in lines:
+                    # First line as plain text
+                    markdown_lines.append(lines[0])
+                    # Remaining lines as bullets
+                    for line in lines[1:]:
                         markdown_lines.append(f"- {line}")
                 else:
                     # Inline comma-separated format
@@ -420,6 +419,7 @@ class OneBusAwaySituationSensor(SensorEntity):
             attributes["markdown_content"] = "\n".join(markdown_lines)
     
         return attributes
+
         
 class OneBusAwayRefreshSensor(SensorEntity):
     """Sensor to display the next refresh timestamp."""
