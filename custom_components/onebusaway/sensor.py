@@ -14,6 +14,7 @@ from .api import OneBusAwayApiClient
 
 _LOGGER = logging.getLogger(__name__)
 
+PREDICTED_PAST_GRACE_MS = 5 * 60 * 1000  # 5 minutes
 
 async def async_setup_entry(hass, entry, async_add_devices):
     """Set up the sensor platform with multiple stops."""
@@ -132,22 +133,34 @@ class OneBusAwaySensorCoordinator:
             if selected_routes and route_id not in selected_routes:
                 return None
         
-            # Only include if either time is in the future
-            if (predicted and predicted > current) or (scheduled and scheduled > current):
-                primary_time = (predicted or scheduled) / 1000
-                deviation = (
-                    (predicted - scheduled) // 1000
-                    if predicted and scheduled else None
-                )
-                return {
-                    "time": primary_time,
-                    "type": "Predicted" if predicted and predicted > current else "Scheduled",
-                    "headsign": trip_headsign,
-                    "routeShortName": route_name,
-                    "schedule_deviation": deviation,
-                }
-            return None
-
+            # Decide whether predicted is still usable
+            predicted_usable = (
+                predicted
+                and predicted >= (current - PREDICTED_PAST_GRACE_MS)
+            )
+            
+            if predicted_usable and predicted > current:
+                primary_time = predicted / 1000
+                arrival_type = "Predicted"
+            elif scheduled and scheduled > current:
+                primary_time = scheduled / 1000
+                arrival_type = "Scheduled"
+            else:
+                return None
+            
+            deviation = (
+                (predicted - scheduled) // 1000
+                if predicted and scheduled
+                else None
+            )
+            
+            return {
+                "time": primary_time,
+                "type": arrival_type,
+                "headsign": trip_headsign,
+                "routeShortName": route_name,
+                "schedule_deviation": deviation,
+            }
 
         # Collect valid departures
         departures = [
